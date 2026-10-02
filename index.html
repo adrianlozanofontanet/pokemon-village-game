@@ -5,42 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MagiK Kingdom</title>
 <style>
-  html, body { margin:0; height:100%; background:#0b1020; overflow:hidden;
-               font-family:Arial,sans-serif; color:#cfd6ee; }
-  #wrap { height:100%; display:flex; flex-direction:column;
-          align-items:center; justify-content:center; gap:8px; }
-  #stage { position:relative; border:3px solid #d4af37; line-height:0; background:#000; }
-  #stage canvas { display:block; }
+  html, body { margin:0; height:100%; background:#000; overflow:hidden;
+               font-family:Arial,sans-serif; }
+  #stage { position:fixed; left:0; top:0; width:100%; height:100%;
+           overflow:hidden; background:#000; }
+  #c, #ui { position:absolute; left:0; top:0; display:block; }
   #c { image-rendering:pixelated; }
-  #ui { position:absolute; left:0; top:0; pointer-events:none; }
-  #hint { font-size:13px; opacity:.8; }
+  #ui { pointer-events:none; }
 </style>
 </head>
 <body>
-<div id="wrap">
-  <div id="stage">
-    <canvas id="c" width="240" height="160"></canvas>
-    <canvas id="ui" width="240" height="160"></canvas>
-  </div>
-  <div id="hint">Flechas: moverte · A: atacar · E: hablar / avanzar texto · ↑↓: elegir opción</div>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <canvas id="ui"></canvas>
 </div>
 
 <script>
 // ============================================================
-//  MagiK Kingdom - Aldea de Rowan (estilo GBA 240x160)
+//  MagiK Kingdom - Aldea de Rowan (estilo GBA, pantalla completa)
 // ============================================================
 const canvas = document.getElementById('c');
 const g = canvas.getContext('2d');
-g.imageSmoothingEnabled = false;
 const ui = document.getElementById('ui');
 const u = ui.getContext('2d');
-const W = 240, H = 160, T = 16;
-let K = 1; // zoom entero actual
+const T = 16;
+let W = 240, H = 160;      // tamaño de la vista en píxeles del juego (se calcula solo)
+let K = 3;                 // zoom: cuántos píxeles de pantalla mide cada píxel del juego
+let zoomManual = 0;        // 0 = automático; con + y - lo cambias a mano
 
 function resize() {
-  K = Math.max(1, Math.floor(Math.min((innerWidth - 30) / W, (innerHeight - 60) / H)));
-  [canvas, ui].forEach(c => { c.style.width = (W * K) + 'px'; c.style.height = (H * K) + 'px'; });
-  ui.width = W * K; ui.height = H * K;   // el texto se dibuja a resolución real (nítido)
+  // Zoom automático: unas 16 casillas de alto (más mundo, personaje más pequeño)
+  K = zoomManual || Math.max(2, Math.round(innerHeight / 256));
+  W = Math.ceil(innerWidth / K);
+  H = Math.ceil(innerHeight / K);
+  canvas.width = W; canvas.height = H;
+  g.imageSmoothingEnabled = false;
+  canvas.style.width = (W * K) + 'px'; canvas.style.height = (H * K) + 'px';
+  ui.width = W * K; ui.height = H * K;      // el texto se dibuja a resolución real (nítido)
+  ui.style.width = (W * K) + 'px'; ui.style.height = (H * K) + 'px';
 }
 addEventListener('resize', resize);
 resize();
@@ -176,35 +178,30 @@ function drawSide(R, pose, f) {
 function drawRaccoon(R, f) {
   const G = '#8a8f99', K2 = '#3a3d46', Wh = '#e6e9ee';
   const J = '#8a5a32', Jd = '#6e4624', Jl = '#a9754a', Jdd = '#5a3a1e';
-  // cola con anillos (se mueve un poco)
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 5; i++) {                       // cola con anillos
     const x = 13 + (i >= 2 ? 1 : 0) + (i >= 3 ? f : 0);
     R(x, 21 - 2 * i, i < 2 ? 3 : 2, 2, i % 2 ? K2 : G);
   }
-  // patas
   R(5,21,2,1,G); R(9,21,2,1,G); R(4,22,3,2,K2); R(9,22,3,2,K2);
-  // chaqueta
-  R(4,15,8,6,J); R(4,19,8,2,Jd);
+  R(4,15,8,6,J); R(4,19,8,2,Jd);                      // chaqueta
   R(7,15,2,6,'#efe6d0');
   R(5,15,2,2,Jl); R(9,15,2,2,Jl);
   R(6,18,1,1,'#ffd84a'); R(9,18,1,1,'#ffd84a');
   R(4,19,3,1,Jdd); R(9,19,3,1,Jdd);
   R(2,16,2,4,J); R(12,16,2,4,J); R(2,20,2,1,K2); R(12,20,2,1,K2);
-  // cabeza
   R(3,5,3,3,G); R(10,5,3,3,G); R(4,6,1,2,K2); R(11,6,1,2,K2);   // orejas
   R(3,7,10,8,G); R(5,7,6,1,'#a3a8b2');
-  R(7,7,2,2,K2);                                                  // raya de la frente
-  R(3,9,10,4,K2);                                                 // antifaz
-  R(5,13,6,2,Wh); R(7,13,2,1,'#22222a');                          // hocico y nariz
-  // gafas redondas
-  [3, 9].forEach(x0 => {
+  R(7,7,2,2,K2);
+  R(3,9,10,4,K2);                                     // antifaz
+  R(5,13,6,2,Wh); R(7,13,2,1,'#22222a');              // hocico y nariz
+  [3, 9].forEach(x0 => {                              // gafas redondas
     R(x0+1,9,2,1,'#e8c86a'); R(x0+1,12,2,1,'#e8c86a');
     R(x0,10,1,2,'#e8c86a'); R(x0+3,10,1,2,'#e8c86a');
     R(x0+1,10,2,2,'#cfe8ff');
   });
   R(7,10,2,1,'#e8c86a');
-  R(5,11,1,1,'#22222a'); R(10,11,1,1,'#22222a');                  // pupilas
-  R(4,10,1,1,'#ffffff'); R(11,10,1,1,'#ffffff');                  // brillo
+  R(5,11,1,1,'#22222a'); R(10,11,1,1,'#22222a');
+  R(4,10,1,1,'#ffffff'); R(11,10,1,1,'#ffffff');
 }
 
 const spriteCache = {};
@@ -263,8 +260,7 @@ for (let v = 0; v < 3; v++) {
     });
   });
 }
-// hierba alta
-TILES.G = mkTile(x => {
+TILES.G = mkTile(x => {                               // hierba alta
   rc(x, 0, 0, 16, 16, '#3f9a34');
   for (let r = 0; r < 16; r += 5) {
     for (let a = (r % 10 ? 2 : 0); a < 16; a += 5) {
@@ -273,19 +269,17 @@ TILES.G = mkTile(x => {
     }
   }
 });
-// camino de piedra clara y camino de tierra
-TILES.S = mkTile(x => {
+TILES.S = mkTile(x => {                               // camino de piedra clara
   rc(x, 0, 0, 16, 16, '#e9e3d0');
   rc(x, 0, 7, 16, 1, '#d0c9b0'); rc(x, 0, 15, 16, 1, '#d0c9b0');
   rc(x, 5, 0, 1, 7, '#d0c9b0'); rc(x, 11, 8, 1, 7, '#d0c9b0');
   rc(x, 1, 1, 3, 1, '#f6f2e4'); rc(x, 7, 9, 3, 1, '#f6f2e4');
 });
-TILES.P = mkTile(x => {
+TILES.P = mkTile(x => {                               // camino de tierra
   rc(x, 0, 0, 16, 16, '#e8d4a0');
   [[2,3],[9,2],[12,8],[5,10],[10,13],[1,14]].forEach(([a, b]) => rc(x, a, b, 2, 1, '#d0b878'));
 });
-// árbol
-TILES.T = mkTile(x => {
+TILES.T = mkTile(x => {                               // árbol
   grass(x);
   rc(x, 6, 11, 4, 5, '#7a5230'); rc(x, 6, 11, 1, 5, '#5a3a20');
   const ws = [6,10,12,14,14,16,16,16,14,14,12,8];
@@ -298,33 +292,29 @@ TILES.T = mkTile(x => {
   });
   rc(x, 5, 0, 6, 1, '#1a4a20');
 });
-// roca y roca en el agua
 function rock(x) {
   rc(x, 2, 7, 12, 8, '#6b707a'); rc(x, 3, 6, 9, 1, '#6b707a');
   rc(x, 3, 7, 10, 6, '#9aa0aa'); rc(x, 4, 7, 4, 2, '#c4c9d2'); rc(x, 2, 14, 12, 1, '#4a4f58');
 }
 TILES.O = mkTile(x => { grass(x); rock(x); });
 TILES.WO = mkTile(x => rock(x));
-// agua (2 fotogramas)
 for (let v = 0; v < 2; v++) {
-  TILES['W' + v] = mkTile(x => {
+  TILES['W' + v] = mkTile(x => {                      // agua (2 fotogramas)
     rc(x, 0, 0, 16, 16, '#3890f0');
     const o = v ? 4 : 0;
     rc(x, 2 + o, 4, 5, 1, '#8ccbff'); rc(x, 9 - o, 10, 5, 1, '#8ccbff'); rc(x, 1 + o, 13, 3, 1, '#60b0ff');
   });
 }
-// vallas y cartel
-TILES.F = mkTile(x => {
+TILES.F = mkTile(x => {                               // valla
   grass(x);
   rc(x, 0, 7, 16, 2, '#d8d8d8'); rc(x, 0, 11, 16, 2, '#d8d8d8');
   [1, 5, 9, 13].forEach(a => { rc(x, a, 4, 2, 11, '#f4f4f4'); rc(x, a, 4, 2, 1, '#ffffff'); rc(x, a + 1, 5, 1, 10, '#c8c8c8'); });
 });
-TILES.N = mkTile(x => {
+TILES.N = mkTile(x => {                               // cartel
   grass(x);
   rc(x, 7, 8, 2, 8, '#6a4524'); rc(x, 2, 3, 12, 7, '#6a4524'); rc(x, 3, 4, 10, 5, '#c8955a');
   rc(x, 4, 5, 5, 1, '#6a4524'); rc(x, 4, 7, 7, 1, '#6a4524');
 });
-// techos por colores
 const PAL = {
   u: { b:'#4a7fd8', d:'#2f5aa8', l:'#7aa8f0' },   // azul
   r: { b:'#e8742c', d:'#b4501c', l:'#ffa860' },   // naranja
@@ -342,7 +332,6 @@ for (const c in PAL) {
   TILES['rt-' + c] = mkTile(x => shingles(x, PAL[c], false));
   TILES['rb-' + c] = mkTile(x => shingles(x, PAL[c], true));
 }
-// paredes
 function wall(x) {
   rc(x, 0, 0, 16, 16, '#f4ecd0');
   rc(x, 0, 0, 16, 1, '#dccfa4'); rc(x, 8, 0, 1, 16, '#e6dab4');
@@ -362,7 +351,7 @@ TILES.dr = mkTile(x => {
   rc(x, 5, 9, 2, 5, '#8c5a34'); rc(x, 9, 9, 2, 5, '#8c5a34');
   rc(x, 10, 9, 1, 1, '#ffd84a');
 });
-TILES.sg = mkTile(x => {                                   // tablón de misiones
+TILES.sg = mkTile(x => {                              // tablón de misiones
   wall(x);
   rc(x, 2, 2, 12, 10, '#6a4524'); rc(x, 3, 3, 10, 8, '#a8743c');
   rc(x, 4, 4, 3, 4, '#fffdf0'); rc(x, 8, 4, 4, 3, '#fffdf0'); rc(x, 6, 8, 4, 2, '#fffdf0');
@@ -378,7 +367,6 @@ const map = Array.from({ length: ROWS }, () => Array(COLS).fill('.'));
 const put = (x, y, t) => { if (x >= 0 && y >= 0 && x < COLS && y < ROWS) map[y][x] = t; };
 const fill = (x, y, w, h, t) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) put(i, j, t); };
 
-// casa: 2 filas de techo + filas de pared (códigos de casilla)
 function house(x, y, c, rows) {
   rows[0].forEach((_, i) => { put(x + i, y, 'rt-' + c); put(x + i, y + 1, 'rb-' + c); });
   rows.forEach((row, j) => row.forEach((k, i) => put(x + i, y + 2 + j, k)));
@@ -387,13 +375,11 @@ function house(x, y, c, rows) {
 let seed = 11;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
-// flores sueltas
-for (let i = 0; i < 120; i++) {
+for (let i = 0; i < 120; i++) {                       // flores sueltas
   const x = 2 + Math.floor(rnd() * (COLS - 4)), y = 2 + Math.floor(rnd() * (ROWS - 4));
   if (map[y][x] === '.') map[y][x] = 'f';
 }
-// bosque disperso (fuera del pueblo)
-function treeOK(x, y) {
+function treeOK(x, y) {                               // bosque disperso fuera del pueblo
   if (x >= 13 && x <= 33 && y >= 10 && y <= 27) return false;
   if (y < 10 && x >= 19 && x <= 28) return false;
   return true;
@@ -402,46 +388,428 @@ for (let y = 0; y < ROWS; y++)
   for (let x = 0; x < COLS; x++)
     if (treeOK(x, y) && rnd() < 0.3) map[y][x] = 'T';
 
-// lago del oeste con rocas
-for (let y = 1; y < ROWS - 1; y++)
+for (let y = 1; y < ROWS - 1; y++)                    // lago del oeste
   for (let x = 1; x < 14; x++) {
     const dx = (x - 6) / 5.6, dy = (y - 14) / 10.5;
     if (dx * dx + dy * dy < 1) map[y][x] = 'W';
   }
 [[4,7],[3,10],[5,13],[3,16],[5,19],[7,22],[8,6],[9,17]].forEach(([x, y]) => { if (map[y][x] === 'W') map[y][x] = 'Wo'; });
 
-// borde de bosque denso (2 casillas)
 for (let x = 0; x < COLS; x++) for (const y of [0, 1, ROWS - 2, ROWS - 1]) put(x, y, 'T');
 for (let y = 0; y < ROWS; y++) for (const x of [0, 1, COLS - 2, COLS - 1]) put(x, y, 'T');
 
-// caminos de piedra: anillo + camino interior + camino a la mansión
-fill(14, 11, 19, 1, 'S'); fill(14, 20, 19, 1, 'S');
+fill(14, 11, 19, 1, 'S'); fill(14, 20, 19, 1, 'S');   // anillo de piedra
 fill(14, 11, 1, 10, 'S'); fill(32, 11, 1, 10, 'S');
-fill(14, 16, 19, 1, 'S');
-fill(23, 6, 2, 5, 'S');
-// salida sur (camino de tierra)
-fill(22, 21, 2, 9, 'P');
+fill(14, 16, 19, 1, 'S');                             // camino interior
+fill(23, 6, 2, 5, 'S');                               // camino a la mansión
+fill(22, 21, 2, 9, 'P');                              // salida sur
 
-// hierba alta
-fill(33, 4, 5, 7, 'G'); fill(33, 22, 5, 5, 'G');
+fill(33, 4, 5, 7, 'G'); fill(33, 22, 5, 5, 'G');      // hierba alta
 fill(14, 22, 6, 3, 'G'); fill(26, 22, 5, 3, 'G');
 
-// jardín de flores en la plaza
 for (let y = 17; y <= 19; y++) for (let x = 22; x <= 25; x++) map[y][x] = 'f';
 
-// edificios
 house(20, 2, 'p', [                                   // edificio grande (techo morado)
   ['wn','wn','wn','wn','wn','wn','wn','wn'],
   ['wl','wn','wl','dr','dr','wl','wn','wl']
 ]);
-house(16, 12, 'u', [['wn','wl','dr','wn']]);          // casa azul
-house(28, 12, 'u', [['wn','wl','dr','wn']]);          // casa azul
+house(16, 12, 'u', [['wn','wl','dr','wn']]);
+house(28, 12, 'u', [['wn','wl','dr','wn']]);
 house(22, 12, 'n', [['wn','sg','dr','wn']]);          // CASA DEL MAPACHE
-house(17, 17, 'u', [['wn','wl','dr','wn']]);          // casa azul
-house(27, 17, 'r', [['wn','wl','dr','wn']]);          // casa naranja
-// caminitos desde las puertas de arriba
+house(17, 17, 'u', [['wn','wl','dr','wn']]);
+house(27, 17, 'r', [['wn','wl','dr','wn']]);
 put(18, 15, 'S'); put(30, 15, 'S'); put(24, 15, 'S');
 
-// vallas, cartel y rocas
-fill(13, 25, 9, 1, 'F'); fill(24, 25, 10, 1, 'F');
-put(21, 24,
+fill(13, 25, 9, 1, 'F'); fill(24, 25, 10, 1, 'F');    // vallas, cartel y rocas
+put(21, 24, 'N');
+put(12, 9, 'O'); put(12, 21, 'O'); put(34, 12, 'O');
+
+const SOLID = new Set(['T','W','Wo','O','F','N','wl','wn','dr','sg',
+  'rt-u','rb-u','rt-r','rb-r','rt-p','rb-p','rt-n','rb-n']);
+
+// ------------------------------------------------------------
+//  DIÁLOGOS Y MISIÓN
+// ------------------------------------------------------------
+const quest = { state: 0 };   // 0 = sin aceptar, 1 = aceptada
+const D = { active: false, text: '', lines: [], total: 0, shown: 0, wrapW: 0, opts: null, sel: 0, then: null };
+
+const dlgW = () => Math.min(W - 12, 260);             // ancho de la caja de texto
+
+function wrapText(text, maxW) {
+  u.font = 'bold 9px "Courier New", monospace';
+  const words = text.split(' '), lines = [];
+  let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (u.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+function rewrap() {
+  D.wrapW = dlgW() - 28;
+  D.lines = wrapText(D.text, D.wrapW);
+  D.total = D.lines.reduce((s, l) => s + l.length, 0);
+}
+function say(text, o) {
+  o = o || {};
+  D.active = true; D.text = text; rewrap();
+  D.shown = 0; D.opts = o.opts || null; D.sel = 0; D.then = o.then || null;
+}
+function closeD() { D.active = false; }
+function pressE() {
+  if (!D.active) return;
+  if (D.shown < D.total) { D.shown = D.total; return; }
+  if (D.opts) D.opts[D.sel].go();
+  else if (D.then) D.then();
+  else closeD();
+}
+
+function talkRaccoon() {
+  if (quest.state === 1) { say(TXT.recordatorio); return; }   // ya aceptada: siempre lo mismo
+  say(TXT.saludo, { opts: [
+    { label: 'Pedir misión', go: () => say(TXT.oferta, { opts: [
+        { label: 'Sí, acepto', go: () => { quest.state = 1; closeD(); } },
+        { label: 'No, gracias', go: () => say(TXT.rechazo) }
+    ] }) },
+    { label: 'Cerrar', go: closeD }
+  ] });
+}
+
+const npcs = [
+  { tx: 24, ty: 15, solid: true, sprite: true, talk: talkRaccoon },
+  { tx: 21, ty: 24, solid: true, sprite: false, talk: () => say(TXT.cartel) }
+];
+const npcAt = (x, y) => npcs.find(n => n.tx === x && n.ty === y);
+
+function isSolid(x, y) {
+  if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return true;
+  if (SOLID.has(map[y][x])) return true;
+  const n = npcAt(x, y);
+  return !!(n && n.solid);
+}
+
+// ------------------------------------------------------------
+//  JUGADOR
+// ------------------------------------------------------------
+const DIRS = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
+const BASE = { right:0, down:Math.PI/2, left:Math.PI, up:-Math.PI/2 };
+const STEP = 0.2;     // segundos por casilla
+const ATT = 0.4;      // duración del ataque
+
+const P = {
+  tx: 22, ty: 20, x: 22 * T, y: 20 * T,
+  fx: 0, fy: 0, gx: 0, gy: 0,
+  dir: 'up', moving: false, t: 0, foot: 1,
+  atk: -1, qA: 0, qE: 0
+};
+let time = 0;
+
+function interact() {
+  const [dx, dy] = DIRS[P.dir];
+  const n = npcAt(P.tx + dx, P.ty + dy);
+  if (n) n.talk();
+}
+
+// ------------------------------------------------------------
+//  CONTROLES
+// ------------------------------------------------------------
+let held = [];
+const KEYDIR = { arrowup:'up', arrowdown:'down', arrowleft:'left', arrowright:'right' };
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  const m = KEYDIR[k];
+  if (m) {
+    e.preventDefault();
+    if (D.active) {
+      if (D.opts && D.shown >= D.total && !e.repeat) {
+        if (m === 'up') D.sel = (D.sel + D.opts.length - 1) % D.opts.length;
+        if (m === 'down') D.sel = (D.sel + 1) % D.opts.length;
+      }
+    } else if (!held.includes(m)) held.push(m);
+  }
+  if (k === 'a' && !e.repeat && !D.active) P.qA = 0.25;
+  if (k === 'e' && !e.repeat) { if (D.active) pressE(); else P.qE = 0.25; }
+  // zoom manual: + acerca, - aleja
+  if ((k === '+' || k === '=') && !e.repeat) { zoomManual = Math.min(6, K + 1); resize(); }
+  if ((k === '-' || k === '_') && !e.repeat) { zoomManual = Math.max(2, K - 1); resize(); }
+});
+addEventListener('keyup', e => {
+  const m = KEYDIR[e.key.toLowerCase()];
+  if (m) held = held.filter(d => d !== m);
+});
+addEventListener('blur', () => { held = []; });
+
+// ------------------------------------------------------------
+//  PARTÍCULAS MORADAS
+// ------------------------------------------------------------
+const parts = [];
+const PCOLS = ['#b44cff', '#d98cff', '#7a2fd1', '#f0c8ff'];
+function spawn(x, y) {
+  parts.push({
+    x, y,
+    vx: (Math.random() - 0.5) * 34, vy: (Math.random() - 0.5) * 34 - 8,
+    life: 0, max: 0.35 + Math.random() * 0.4,
+    c: PCOLS[(Math.random() * 4) | 0], s: Math.random() < 0.3 ? 2 : 1
+  });
+}
+function swordInfo() {
+  const t = P.atk / ATT;
+  const u2 = t < 0.2 ? 0 : Math.min(1, (t - 0.2) / 0.45);
+  const e = u2 * u2 * (3 - 2 * u2);
+  return { t, u: u2, ang: BASE[P.dir] + (-1.2 + 2.4 * e) };
+}
+
+// ------------------------------------------------------------
+//  ACTUALIZAR
+// ------------------------------------------------------------
+function update(dt) {
+  time += dt;
+  P.qA = Math.max(0, P.qA - dt); P.qE = Math.max(0, P.qE - dt);
+
+  if (D.active && D.shown < D.total) D.shown = Math.min(D.total, D.shown + dt * 45);
+
+  if (P.atk >= 0) {
+    P.atk += dt;
+    const s = swordInfo();
+    if (s.t >= 0.2 && s.t <= 0.7) {
+      const ox = P.x + 8, oy = P.y + 7;
+      for (let i = 0; i < 3; i++) {
+        const r = i === 0 ? 14 : 6 + Math.random() * 8;
+        spawn(ox + Math.cos(s.ang) * r, oy + Math.sin(s.ang) * r);
+      }
+    }
+    if (P.atk >= ATT) P.atk = -1;
+  }
+
+  if (P.moving) {
+    P.t += dt / STEP;
+    if (P.t >= 1) {
+      P.moving = false; P.x = P.gx; P.y = P.gy;
+      P.tx = Math.round(P.x / T); P.ty = Math.round(P.y / T);
+    } else {
+      P.x = P.fx + (P.gx - P.fx) * P.t;
+      P.y = P.fy + (P.gy - P.fy) * P.t;
+    }
+  }
+
+  if (!P.moving && P.atk < 0 && !D.active) {
+    if (P.qE > 0) { P.qE = 0; interact(); }
+    else if (P.qA > 0) { P.qA = 0; P.atk = 0; }
+    else if (held.length) {
+      const d = held[held.length - 1];
+      P.dir = d;
+      const [dx, dy] = DIRS[d];
+      if (!isSolid(P.tx + dx, P.ty + dy)) {
+        P.moving = true; P.t = 0; P.foot = 3 - P.foot;
+        P.fx = P.x; P.fy = P.y;
+        P.gx = (P.tx + dx) * T; P.gy = (P.ty + dy) * T;
+      }
+    }
+  }
+
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.life += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= 12 * dt;
+    if (p.life >= p.max) parts.splice(i, 1);
+  }
+}
+
+// ------------------------------------------------------------
+//  DIBUJAR EL MUNDO
+// ------------------------------------------------------------
+function isWater(x, y) {
+  const t = (x >= 0 && y >= 0 && x < COLS && y < ROWS) ? map[y][x] : 'T';
+  return t === 'W' || t === 'Wo';
+}
+function drawWater(x, y, withRock) {
+  const px = x * T, py = y * T;
+  g.drawImage(TILES['W' + (Math.floor(time * 1.5) % 2)], px, py);
+  if (withRock) g.drawImage(TILES.WO, px, py);
+  const dark = '#1f5fb8', foam = '#bfe6ff';
+  if (!isWater(x, y - 1)) { g.fillStyle = dark; g.fillRect(px, py, 16, 1); g.fillStyle = foam; g.fillRect(px, py + 1, 16, 1); }
+  if (!isWater(x, y + 1)) { g.fillStyle = dark; g.fillRect(px, py + 15, 16, 1); g.fillStyle = foam; g.fillRect(px, py + 14, 16, 1); }
+  if (!isWater(x - 1, y)) { g.fillStyle = dark; g.fillRect(px, py, 1, 16); g.fillStyle = foam; g.fillRect(px + 1, py, 1, 16); }
+  if (!isWater(x + 1, y)) { g.fillStyle = dark; g.fillRect(px + 15, py, 1, 16); g.fillStyle = foam; g.fillRect(px + 14, py, 1, 16); }
+}
+function drawTileAt(x, y) {
+  const t = map[y][x];
+  if (t === '.') g.drawImage(TILES['g' + ((x + y) % 2)], x * T, y * T);
+  else if (t === 'f') g.drawImage(TILES['f' + ((x * 3 + y) % 3)], x * T, y * T);
+  else if (t === 'W' || t === 'Wo') drawWater(x, y, t === 'Wo');
+  else g.drawImage(TILES[t], x * T, y * T);
+}
+function shadow(px, py) {
+  g.fillStyle = 'rgba(0,0,0,0.25)';
+  g.fillRect(px + 4, py + 12, 8, 1); g.fillRect(px + 3, py + 13, 10, 2); g.fillRect(px + 4, py + 15, 8, 1);
+}
+
+function drawSword(ang) {
+  const ox = P.x + 8, oy = P.y + 7;
+  const pts = [];
+  for (let r = 3; r <= 13; r++) pts.push([Math.round(ox + Math.cos(ang) * r), Math.round(oy + Math.sin(ang) * r), r]);
+  g.fillStyle = '#1a1220';
+  pts.forEach(([x, y]) => g.fillRect(x - 1, y - 1, 4, 4));
+  pts.forEach(([x, y, r]) => {
+    g.fillStyle = r <= 4 ? '#6b4a2f' : r >= 12 ? '#f0c8ff' : '#dfe9ff';
+    g.fillRect(x, y, 2, 2);
+  });
+  const gx = ox + Math.cos(ang) * 5, gy = oy + Math.sin(ang) * 5;
+  g.fillStyle = '#d9b44a';
+  for (let s = -2; s <= 2; s++)
+    g.fillRect(Math.round(gx + Math.cos(ang + Math.PI / 2) * s), Math.round(gy + Math.sin(ang + Math.PI / 2) * s), 1, 1);
+}
+function drawTrail(s) {
+  if (s.u <= 0 || s.u >= 1) return;
+  for (let k = 1; k <= 6; k++) {
+    const a = s.ang - k * 0.18;
+    g.globalAlpha = 0.6 - k * 0.08;
+    g.fillStyle = k < 3 ? '#d98cff' : '#8a3fe0';
+    [10, 12, 14].forEach(r => g.fillRect(Math.round(P.x + 8 + Math.cos(a) * r), Math.round(P.y + 7 + Math.sin(a) * r), 2, 2));
+  }
+  g.globalAlpha = 1;
+}
+
+function drawPlayer() {
+  const attacking = P.atk >= 0;
+  const s = attacking ? swordInfo() : null;
+  const pose = attacking ? 0 : (P.moving ? P.foot : 0);
+  const flame = Math.floor(time * 6) % 2;
+  let dy = 0;
+  if (P.moving && P.t > 0.2 && P.t < 0.8) dy = -1;
+  let lx = 0, ly = 0;
+  if (attacking && s.t > 0.2 && s.t < 0.65) { lx = DIRS[P.dir][0]; ly = DIRS[P.dir][1]; }
+
+  if (attacking && P.dir === 'up' && s.t < 0.92) { drawTrail(s); drawSword(s.ang); }
+  shadow(Math.round(P.x), Math.round(P.y));
+  g.drawImage(getSprite(P.dir, pose, flame), Math.round(P.x) - 1 + lx, Math.round(P.y) - 9 + dy + ly);
+  if (attacking && P.dir !== 'up' && s.t < 0.92) { drawTrail(s); drawSword(s.ang); }
+
+  const gx = Math.floor((P.x + 8) / T), gy = Math.floor((P.y + 13) / T);   // la hierba tapa los pies
+  if (gx >= 0 && gy >= 0 && gx < COLS && gy < ROWS && map[gy][gx] === 'G')
+    g.drawImage(TILES.G, 0, 8, 16, 8, gx * T, gy * T + 8, 16, 8);
+}
+function drawNpc(n) {
+  const px = n.tx * T, py = n.ty * T;
+  shadow(px, py);
+  g.drawImage(getRaccoon(Math.floor(time * 2) % 2), px - 1, py - 9);
+}
+
+// Cámara: sigue al jugador; si el mundo es más pequeño que la pantalla, lo centra
+function camAxis(p, view, world) {
+  if (world <= view) return -Math.floor((view - world) / 2);
+  return Math.round(Math.min(Math.max(p - view / 2, 0), world - view));
+}
+
+function render() {
+  const camX = camAxis(P.x + 8, W, COLS * T);
+  const camY = camAxis(P.y + 8, H, ROWS * T);
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  g.save();
+  g.translate(-camX, -camY);
+
+  for (let y = Math.floor(camY / T); y <= Math.ceil((camY + H) / T); y++)
+    for (let x = Math.floor(camX / T); x <= Math.ceil((camX + W) / T); x++)
+      if (x >= 0 && y >= 0 && x < COLS && y < ROWS) drawTileAt(x, y);
+
+  const ents = [{ y: P.y, draw: drawPlayer }];
+  npcs.filter(n => n.sprite).forEach(n => ents.push({ y: n.ty * T, draw: () => drawNpc(n) }));
+  ents.sort((a, b) => a.y - b.y).forEach(e => e.draw());
+
+  if (quest.state === 0 && !D.active) {                  // "!" sobre el mapache
+    const r = npcs[0];
+    const ex = r.tx * T + 6, ey = r.ty * T - 15 + Math.round(Math.sin(time * 5) * 1.5);
+    g.fillStyle = '#1a1220'; g.fillRect(ex - 1, ey - 1, 4, 8); g.fillRect(ex - 1, ey + 7, 4, 4);
+    g.fillStyle = '#ffd84a'; g.fillRect(ex, ey, 2, 6); g.fillRect(ex, ey + 8, 2, 2);
+  }
+
+  parts.forEach(p => {
+    g.globalAlpha = 1 - p.life / p.max;
+    g.fillStyle = p.c;
+    g.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
+  });
+  g.globalAlpha = 1;
+  g.restore();
+}
+
+// ------------------------------------------------------------
+//  INTERFAZ (texto nítido a resolución real)
+// ------------------------------------------------------------
+function box(x, y, w, h) {
+  u.fillStyle = '#283048'; u.fillRect(x, y, w, h);
+  u.fillStyle = '#8a9ad0'; u.fillRect(x + 1, y + 1, w - 2, h - 2);
+  u.fillStyle = '#f8f8f0'; u.fillRect(x + 2, y + 2, w - 4, h - 4);
+}
+function drawUI() {
+  u.setTransform(1, 0, 0, 1, 0, 0);
+  u.clearRect(0, 0, ui.width, ui.height);
+  u.setTransform(K, 0, 0, K, 0, 0);
+  u.textBaseline = 'top';
+  u.font = 'bold 9px "Courier New", monospace';
+
+  // controles (se desvanecen a los pocos segundos)
+  if (time < 10) {
+    u.globalAlpha = time < 8 ? 1 : Math.max(0, 1 - (time - 8) / 2);
+    u.textAlign = 'right';
+    const hint = 'Flechas: mover · A: atacar · E: hablar · + / - : zoom';
+    u.fillStyle = '#000'; u.fillText(hint, W - 7, 7);
+    u.fillStyle = '#fff'; u.fillText(hint, W - 8, 6);
+    u.textAlign = 'left';
+    u.globalAlpha = 1;
+  }
+
+  if (quest.state === 1) {
+    const t = 'Misión: hongos brillantes';
+    box(4, 4, Math.ceil(u.measureText(t).width) + 12, 15);
+    u.fillStyle = '#1c1c28'; u.fillText(t, 10, 8);
+  }
+  if (!D.active) return;
+
+  const DW = dlgW(), bx = Math.floor((W - DW) / 2), by = H - 62;
+  if (D.wrapW !== DW - 28) rewrap();                     // si cambia el zoom, recoloca el texto
+  box(bx, by, DW, 56);
+  u.fillStyle = '#1c1c28';
+  let rem = Math.floor(D.shown);
+  D.lines.forEach((l, i) => {
+    u.fillText(l.slice(0, Math.max(0, rem)), bx + 8, by + 7 + i * 12);
+    rem -= l.length;
+  });
+
+  if (D.shown >= D.total) {
+    if (D.opts) {                                        // menú de opciones
+      const h = D.opts.length * 13 + 8, ox = bx + DW - 88;
+      box(ox, by - h - 2, 88, h);
+      D.opts.forEach((o, i) => {
+        const y = by - h + i * 13;
+        u.fillStyle = '#1c1c28';
+        u.fillText(o.label, ox + 18, y + 2);
+        if (i === D.sel) {                               // flechita
+          u.fillRect(ox + 8, y + 3, 1, 7); u.fillRect(ox + 9, y + 4, 1, 5);
+          u.fillRect(ox + 10, y + 5, 1, 3); u.fillRect(ox + 11, y + 6, 1, 1);
+        }
+      });
+    } else if (Math.floor(time * 3) % 2 === 0) {         // ▼ continuar
+      u.fillStyle = '#d83030';
+      const ax = bx + DW - 16, ay = by + 44;
+      u.fillRect(ax, ay, 7, 1); u.fillRect(ax + 1, ay + 1, 5, 1);
+      u.fillRect(ax + 2, ay + 2, 3, 1); u.fillRect(ax + 3, ay + 3, 1, 1);
+    }
+  }
+}
+
+// ------------------------------------------------------------
+//  BUCLE DEL JUEGO
+// ------------------------------------------------------------
+let last = 0;
+function loop(ts) {
+  const dt = Math.min((ts - last) / 1000 || 0, 0.05);
+  last = ts;
+  update(dt);
+  render();
+  drawUI();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
