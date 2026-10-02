@@ -9,36 +9,55 @@
                font-family:Arial,sans-serif; color:#cfd6ee; }
   #wrap { height:100%; display:flex; flex-direction:column;
           align-items:center; justify-content:center; gap:8px; }
-  canvas { image-rendering:pixelated; border:3px solid #d4af37; background:#000; }
+  #stage { position:relative; border:3px solid #d4af37; line-height:0; background:#000; }
+  #stage canvas { display:block; }
+  #c { image-rendering:pixelated; }
+  #ui { position:absolute; left:0; top:0; pointer-events:none; }
   #hint { font-size:13px; opacity:.8; }
 </style>
 </head>
 <body>
 <div id="wrap">
-  <canvas id="c" width="240" height="160"></canvas>
-  <div id="hint">Flechas: moverte · A: atacar con la espada</div>
+  <div id="stage">
+    <canvas id="c" width="240" height="160"></canvas>
+    <canvas id="ui" width="240" height="160"></canvas>
+  </div>
+  <div id="hint">Flechas: moverte · A: atacar · E: hablar / avanzar texto · ↑↓: elegir opción</div>
 </div>
 
 <script>
 // ============================================================
-//  MagiK Kingdom - estilo GBA (240x160, casillas de 16x16)
+//  MagiK Kingdom - Aldea de Rowan (estilo GBA 240x160)
 // ============================================================
 const canvas = document.getElementById('c');
 const g = canvas.getContext('2d');
 g.imageSmoothingEnabled = false;
+const ui = document.getElementById('ui');
+const u = ui.getContext('2d');
 const W = 240, H = 160, T = 16;
+let K = 1; // zoom entero actual
 
-// Amplía el canvas en números enteros para que los píxeles queden nítidos
 function resize() {
-  const k = Math.max(1, Math.floor(Math.min((innerWidth - 20) / W, (innerHeight - 50) / H)));
-  canvas.style.width = (W * k) + 'px';
-  canvas.style.height = (H * k) + 'px';
+  K = Math.max(1, Math.floor(Math.min((innerWidth - 30) / W, (innerHeight - 60) / H)));
+  [canvas, ui].forEach(c => { c.style.width = (W * K) + 'px'; c.style.height = (H * K) + 'px'; });
+  ui.width = W * K; ui.height = H * K;   // el texto se dibuja a resolución real (nítido)
 }
 addEventListener('resize', resize);
 resize();
 
 // ------------------------------------------------------------
-//  PALETA DEL PERSONAJE (cambia aquí los colores)
+//  TEXTOS (cámbialos a tu gusto)
+// ------------------------------------------------------------
+const TXT = {
+  saludo: '¡Hola, viajero! Soy el mapache de las misiones. Hay uno como yo en cada aldea. ¿Quieres echar una mano a la gente?',
+  oferta: 'Unos hongos brillantes se perdieron en el bosque de Rowan. Tráeme tres y te daré una recompensa. ¿Aceptas la misión?',
+  rechazo: 'Sin prisa. Cuando quieras, vuelve y pídeme la misión.',
+  recordatorio: 'Recuerda: tráeme tres hongos brillantes del bosque. ¡Yo te esperaré aquí con tu recompensa!',
+  cartel: 'ALDEA DE ROWAN. Al sur sale el camino hacia las otras tierras.'
+};
+
+// ------------------------------------------------------------
+//  PALETA DEL PERSONAJE
 // ------------------------------------------------------------
 const C = {
   skin:'#f6cfa3', skinD:'#d9a577',
@@ -51,7 +70,6 @@ const C = {
 // ------------------------------------------------------------
 //  UTILIDADES DE SPRITES
 // ------------------------------------------------------------
-// Añade un contorno oscuro de 1 píxel alrededor de lo dibujado
 function outline(c) {
   const x = c.getContext('2d'), w = c.width, h = c.height;
   const d = x.getImageData(0, 0, w, h).data;
@@ -69,7 +87,6 @@ function outline(c) {
   }
   x.putImageData(out, 0, 0);
 }
-
 function flip(c) {
   const f = document.createElement('canvas');
   f.width = c.width; f.height = c.height;
@@ -79,71 +96,46 @@ function flip(c) {
 }
 
 // ------------------------------------------------------------
-//  PERSONAJE VISTO DE FRENTE (mirando hacia abajo)
-//  pose: 0 = quieto, 1 y 2 = pasos alternos
-//  f: fotograma del fuego del pelo (0/1)
+//  KEN: de frente / de espaldas / de perfil
 // ------------------------------------------------------------
 function drawFront(R, pose, f) {
-  const lL = pose === 2 ? 1 : 0, lR = pose === 1 ? 1 : 0;  // pierna levantada
-  const aL = pose === 1 ? 1 : 0, aR = pose === 2 ? 1 : 0;  // brazo adelantado
-
-  // empuñadura de la espada asomando por el hombro
+  const lL = pose === 2 ? 1 : 0, lR = pose === 1 ? 1 : 0;
+  const aL = pose === 1 ? 1 : 0, aR = pose === 2 ? 1 : 0;
   R(14,8,1,1,C.hilt); R(14,9,1,2,C.scab); R(13,11,3,1,C.hilt);
-
-  // piernas (bota izquierda de la pantalla = la rota de Ken)
   R(5,20-lL,2,2,C.sock); R(4,22-lL,3,2,C.boot);
   R(4,23-lL,2,1,C.skin); R(6,23-lL,1,1,C.bootD); R(4,22-lL,1,1,C.bootD);
   R(9,20-lR,2,2,C.sock); R(9,22-lR,3,2,C.boot); R(9,23-lR,3,1,C.bootD);
-
-  // brazos
   R(2,12,2,4+aL,C.navy); R(2,16+aL,2,1,C.red); R(2,17+aL,2,1,C.skin);
   R(12,12,2,4+aR,C.navy); R(12,16+aR,2,1,C.red); R(12,17+aR,2,1,C.skin);
-
-  // túnica
   R(4,11,8,7,C.navy); R(4,18,8,1,C.navyD); R(4,19,8,1,C.red);
-  R(6,11,4,1,C.red); R(7,12,2,7,C.red);                // interior rojo
-  R(5,14,2,2,C.navyD); R(6,15,1,1,C.orange);           // bolsillo izq
-  R(9,14,2,2,C.navyD); R(9,15,1,1,C.orange);           // bolsillo der
-  R(4,12,1,1,C.red); R(11,12,1,1,C.red);               // bordados
+  R(6,11,4,1,C.red); R(7,12,2,7,C.red);
+  R(5,14,2,2,C.navyD); R(6,15,1,1,C.orange);
+  R(9,14,2,2,C.navyD); R(9,15,1,1,C.orange);
+  R(4,12,1,1,C.red); R(11,12,1,1,C.red);
   for (let x = 4; x < 12; x += 2) R(x,18,1,1,C.red);
-
-  // cabeza
   R(6,10,4,1,C.skin);
   R(5,1,6,1,C.hair); R(4,2,8,3,C.hair);
-  R(3,5,2,6,C.hair); R(11,5,2,6,C.hair);              // mechones laterales
+  R(3,5,2,6,C.hair); R(11,5,2,6,C.hair);
   R(6,2,1,2,C.hairR); R(9,3,1,2,C.hairR); R(4,3,1,1,C.hairR);
   R(3,10,1,1,C.hairR); R(12,10,1,1,C.hairR);
   R(5,5,6,5,C.skin);
-  R(5,5,2,1,C.hair); R(9,5,2,1,C.hair); R(7,5,1,2,C.hair); // flequillo
+  R(5,5,2,1,C.hair); R(9,5,2,1,C.hair); R(7,5,1,2,C.hair);
   R(6,7,1,2,C.eye); R(9,7,1,2,C.eye);
   R(7,9,2,1,C.skinD);
-  R(6+f,0,1,1,C.hairY); R(9-f,0,1,1,C.hair);           // llama del pelo
+  R(6+f,0,1,1,C.hairY); R(9-f,0,1,1,C.hair);
 }
-
-// ------------------------------------------------------------
-//  PERSONAJE DE ESPALDAS (mirando hacia arriba)
-// ------------------------------------------------------------
 function drawBack(R, pose, f) {
   const lL = pose === 2 ? 1 : 0, lR = pose === 1 ? 1 : 0;
   const aL = pose === 1 ? 1 : 0, aR = pose === 2 ? 1 : 0;
-
   R(14,8,1,1,C.hilt); R(14,9,1,2,C.scab); R(13,11,3,1,C.hilt);
-
   R(5,20-lL,2,2,C.sock); R(4,22-lL,3,2,C.boot); R(4,23-lL,3,1,C.bootD);
   R(9,20-lR,2,2,C.sock); R(9,22-lR,3,2,C.boot); R(9,23-lR,3,1,C.bootD);
-
-  // túnica por detrás
   R(4,11,8,7,C.navy); R(4,18,8,1,C.navyD); R(4,19,8,1,C.red);
   R(6,11,4,1,C.red); R(7,12,1,6,C.navyD);
   for (let x = 4; x < 12; x += 2) R(x,18,1,1,C.red);
-  // vaina de la espada cruzando la espalda
   for (let i = 0; i < 8; i++) { R(11-i,12+i,1,1,C.scab); R(12-i,12+i,1,1,C.boot); }
-
-  // brazos
   R(2,12,2,4+aL,C.navy); R(2,16+aL,2,1,C.red); R(2,17+aL,2,1,C.skin);
   R(12,12,2,4+aR,C.navy); R(12,16+aR,2,1,C.red); R(12,17+aR,2,1,C.skin);
-
-  // pelo visto por detrás
   R(5,1,6,1,C.hair); R(4,2,8,9,C.hair);
   R(3,5,2,6,C.hair); R(11,5,2,6,C.hair);
   R(6,3,1,3,C.hairR); R(9,5,1,4,C.hairR); R(4,7,1,2,C.hairR); R(11,6,1,3,C.hairR);
@@ -151,12 +143,7 @@ function drawBack(R, pose, f) {
   R(3,10,1,1,C.hairR); R(12,10,1,1,C.hairR);
   R(6+f,0,1,1,C.hairY); R(9-f,0,1,1,C.hair);
 }
-
-// ------------------------------------------------------------
-//  PERSONAJE DE PERFIL (mirando a la izquierda; la derecha es el espejo)
-// ------------------------------------------------------------
 function drawSide(R, pose, f) {
-  // piernas
   if (pose === 0) {
     R(7,20,2,2,C.sock); R(5,22,4,2,C.boot); R(5,23,4,1,C.bootD);
   } else {
@@ -164,34 +151,62 @@ function drawSide(R, pose, f) {
     R(9,20-bU,2,2,C.sock); R(8,22-bU,3,2,C.boot); R(8,23-bU,3,1,C.bootD);
     R(5,20-fU,2,2,C.sock); R(3,22-fU,4,2,C.boot); R(3,23-fU,4,1,C.bootD);
   }
-
-  // túnica
   R(5,11,7,7,C.navy); R(5,18,7,1,C.navyD); R(5,19,7,1,C.red);
   R(5,11,2,1,C.red); R(5,12,1,7,C.red);
   R(9,14,2,2,C.navyD); R(10,15,1,1,C.orange);
   for (let x = 6; x < 12; x += 2) R(x,18,1,1,C.red);
-
-  // espada a la espalda
   R(14,9,1,1,C.hilt); R(14,10,1,2,C.scab); R(13,12,3,1,C.hilt);
   R(13,13,1,2,C.scab); R(12,15,1,2,C.scab); R(11,17,1,2,C.scab);
-
-  // brazo
   const ax = pose === 1 ? 6 : pose === 2 ? 9 : 7;
   R(ax,12,2,4,C.navy); R(ax,16,2,1,C.red); R(ax,17,2,1,C.skin);
-
-  // cabeza
   R(6,10,3,1,C.skin);
   R(5,1,6,1,C.hair); R(4,2,9,3,C.hair);
-  R(9,5,4,6,C.hair);                                   // pelo largo de atrás
-  R(5,5,4,5,C.skin); R(4,7,1,1,C.skin);               // cara y nariz
-  R(5,5,3,1,C.hair);                                   // flequillo
+  R(9,5,4,6,C.hair);
+  R(5,5,4,5,C.skin); R(4,7,1,1,C.skin);
+  R(5,5,3,1,C.hair);
   R(6,7,1,2,C.eye); R(5,9,1,1,C.skinD);
   R(10,6,1,3,C.hairR); R(11,3,1,2,C.hairR); R(7,2,1,2,C.hairR);
   R(10,11,1,1,C.hairR);
   R(7+f,0,1,1,C.hairY); R(10-f,1,1,1,C.hairY);
 }
 
-// Caché de sprites: se dibuja cada fotograma una sola vez
+// ------------------------------------------------------------
+//  EL MAPACHE: gafas redondas y chaqueta marrón
+// ------------------------------------------------------------
+function drawRaccoon(R, f) {
+  const G = '#8a8f99', K2 = '#3a3d46', Wh = '#e6e9ee';
+  const J = '#8a5a32', Jd = '#6e4624', Jl = '#a9754a', Jdd = '#5a3a1e';
+  // cola con anillos (se mueve un poco)
+  for (let i = 0; i < 5; i++) {
+    const x = 13 + (i >= 2 ? 1 : 0) + (i >= 3 ? f : 0);
+    R(x, 21 - 2 * i, i < 2 ? 3 : 2, 2, i % 2 ? K2 : G);
+  }
+  // patas
+  R(5,21,2,1,G); R(9,21,2,1,G); R(4,22,3,2,K2); R(9,22,3,2,K2);
+  // chaqueta
+  R(4,15,8,6,J); R(4,19,8,2,Jd);
+  R(7,15,2,6,'#efe6d0');
+  R(5,15,2,2,Jl); R(9,15,2,2,Jl);
+  R(6,18,1,1,'#ffd84a'); R(9,18,1,1,'#ffd84a');
+  R(4,19,3,1,Jdd); R(9,19,3,1,Jdd);
+  R(2,16,2,4,J); R(12,16,2,4,J); R(2,20,2,1,K2); R(12,20,2,1,K2);
+  // cabeza
+  R(3,5,3,3,G); R(10,5,3,3,G); R(4,6,1,2,K2); R(11,6,1,2,K2);   // orejas
+  R(3,7,10,8,G); R(5,7,6,1,'#a3a8b2');
+  R(7,7,2,2,K2);                                                  // raya de la frente
+  R(3,9,10,4,K2);                                                 // antifaz
+  R(5,13,6,2,Wh); R(7,13,2,1,'#22222a');                          // hocico y nariz
+  // gafas redondas
+  [3, 9].forEach(x0 => {
+    R(x0+1,9,2,1,'#e8c86a'); R(x0+1,12,2,1,'#e8c86a');
+    R(x0,10,1,2,'#e8c86a'); R(x0+3,10,1,2,'#e8c86a');
+    R(x0+1,10,2,2,'#cfe8ff');
+  });
+  R(7,10,2,1,'#e8c86a');
+  R(5,11,1,1,'#22222a'); R(10,11,1,1,'#22222a');                  // pupilas
+  R(4,10,1,1,'#ffffff'); R(11,10,1,1,'#ffffff');                  // brillo
+}
+
 const spriteCache = {};
 function getSprite(dir, pose, flame) {
   const key = dir + pose + flame;
@@ -205,6 +220,16 @@ function getSprite(dir, pose, flame) {
   else drawSide(R, pose, flame);
   outline(c);
   return (spriteCache[key] = (dir === 'right') ? flip(c) : c);
+}
+function getRaccoon(f) {
+  const key = 'rac' + f;
+  if (spriteCache[key]) return spriteCache[key];
+  const c = document.createElement('canvas');
+  c.width = 18; c.height = 26;
+  const x = c.getContext('2d');
+  drawRaccoon((a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a + 1, b + 1, w, h); }, f);
+  outline(c);
+  return (spriteCache[key] = c);
 }
 
 // ------------------------------------------------------------
@@ -234,16 +259,33 @@ for (let v = 0; v < 3; v++) {
   TILES['f' + v] = mkTile(x => {
     grass(x);
     [[3,4],[10,8],[5,12]].forEach(([a, b]) => {
-      rc(x, a, b, 2, 2, flowerCols[v]); rc(x, a, b+2, 1, 2, '#4f9e38');
-      rc(x, a, b, 1, 1, '#ffe9a0');
+      rc(x, a, b, 2, 2, flowerCols[v]); rc(x, a, b+2, 1, 2, '#4f9e38'); rc(x, a, b, 1, 1, '#ffe9a0');
     });
   });
 }
-TILES.P = mkTile(x => {                                // camino
+// hierba alta
+TILES.G = mkTile(x => {
+  rc(x, 0, 0, 16, 16, '#3f9a34');
+  for (let r = 0; r < 16; r += 5) {
+    for (let a = (r % 10 ? 2 : 0); a < 16; a += 5) {
+      rc(x, a, r + 1, 1, 4, '#2a7a28'); rc(x, a + 1, r + 2, 1, 3, '#2a7a28'); rc(x, a + 2, r + 1, 1, 4, '#2a7a28');
+      rc(x, a + 1, r, 1, 2, '#7cc85a');
+    }
+  }
+});
+// camino de piedra clara y camino de tierra
+TILES.S = mkTile(x => {
+  rc(x, 0, 0, 16, 16, '#e9e3d0');
+  rc(x, 0, 7, 16, 1, '#d0c9b0'); rc(x, 0, 15, 16, 1, '#d0c9b0');
+  rc(x, 5, 0, 1, 7, '#d0c9b0'); rc(x, 11, 8, 1, 7, '#d0c9b0');
+  rc(x, 1, 1, 3, 1, '#f6f2e4'); rc(x, 7, 9, 3, 1, '#f6f2e4');
+});
+TILES.P = mkTile(x => {
   rc(x, 0, 0, 16, 16, '#e8d4a0');
   [[2,3],[9,2],[12,8],[5,10],[10,13],[1,14]].forEach(([a, b]) => rc(x, a, b, 2, 1, '#d0b878'));
 });
-TILES.T = mkTile(x => {                                // árbol
+// árbol
+TILES.T = mkTile(x => {
   grass(x);
   rc(x, 6, 11, 4, 5, '#7a5230'); rc(x, 6, 11, 1, 5, '#5a3a20');
   const ws = [6,10,12,14,14,16,16,16,14,14,12,8];
@@ -256,298 +298,150 @@ TILES.T = mkTile(x => {                                // árbol
   });
   rc(x, 5, 0, 6, 1, '#1a4a20');
 });
+// roca y roca en el agua
+function rock(x) {
+  rc(x, 2, 7, 12, 8, '#6b707a'); rc(x, 3, 6, 9, 1, '#6b707a');
+  rc(x, 3, 7, 10, 6, '#9aa0aa'); rc(x, 4, 7, 4, 2, '#c4c9d2'); rc(x, 2, 14, 12, 1, '#4a4f58');
+}
+TILES.O = mkTile(x => { grass(x); rock(x); });
+TILES.WO = mkTile(x => rock(x));
+// agua (2 fotogramas)
 for (let v = 0; v < 2; v++) {
-  TILES['W' + v] = mkTile(x => {                       // agua animada
+  TILES['W' + v] = mkTile(x => {
     rc(x, 0, 0, 16, 16, '#3890f0');
     const o = v ? 4 : 0;
-    rc(x, 2 + o, 4, 5, 1, '#8ccbff'); rc(x, 9 - o, 10, 5, 1, '#8ccbff');
-    rc(x, 1 + o, 13, 3, 1, '#60b0ff');
+    rc(x, 2 + o, 4, 5, 1, '#8ccbff'); rc(x, 9 - o, 10, 5, 1, '#8ccbff'); rc(x, 1 + o, 13, 3, 1, '#60b0ff');
   });
 }
-function shingles(x, shadow) {
-  rc(x, 0, 0, 16, 16, '#d8503c');
-  for (let r = 3; r < 16; r += 4) rc(x, 0, r, 16, 1, '#a83a2c');
-  for (let r = 0; r < 16; r += 4) for (let a = (r / 4 % 2) * 4; a < 16; a += 8) rc(x, a, r, 1, 3, '#a83a2c');
-  rc(x, 0, 0, 16, 1, '#f07a5a');
-  if (shadow) { rc(x, 0, 13, 16, 3, '#7a2a22'); }
+// vallas y cartel
+TILES.F = mkTile(x => {
+  grass(x);
+  rc(x, 0, 7, 16, 2, '#d8d8d8'); rc(x, 0, 11, 16, 2, '#d8d8d8');
+  [1, 5, 9, 13].forEach(a => { rc(x, a, 4, 2, 11, '#f4f4f4'); rc(x, a, 4, 2, 1, '#ffffff'); rc(x, a + 1, 5, 1, 10, '#c8c8c8'); });
+});
+TILES.N = mkTile(x => {
+  grass(x);
+  rc(x, 7, 8, 2, 8, '#6a4524'); rc(x, 2, 3, 12, 7, '#6a4524'); rc(x, 3, 4, 10, 5, '#c8955a');
+  rc(x, 4, 5, 5, 1, '#6a4524'); rc(x, 4, 7, 7, 1, '#6a4524');
+});
+// techos por colores
+const PAL = {
+  u: { b:'#4a7fd8', d:'#2f5aa8', l:'#7aa8f0' },   // azul
+  r: { b:'#e8742c', d:'#b4501c', l:'#ffa860' },   // naranja
+  p: { b:'#7a4cc0', d:'#523090', l:'#a888e8' },   // morado
+  n: { b:'#8a5a32', d:'#5e3a1e', l:'#b88858' }    // marrón (casa del mapache)
+};
+function shingles(x, p, bottom) {
+  rc(x, 0, 0, 16, 16, p.b);
+  for (let r = 3; r < 16; r += 4) rc(x, 0, r, 16, 1, p.d);
+  for (let r = 0; r < 16; r += 4) for (let a = ((r / 4) % 2) * 4; a < 16; a += 8) rc(x, a, r, 1, 3, p.d);
+  rc(x, 0, 0, 16, 1, p.l);
+  if (bottom) { rc(x, 0, 13, 16, 3, p.d); rc(x, 0, 15, 16, 1, 'rgba(0,0,0,0.35)'); }
 }
-TILES.R = mkTile(x => shingles(x, false));
-TILES.r = mkTile(x => shingles(x, true));
+for (const c in PAL) {
+  TILES['rt-' + c] = mkTile(x => shingles(x, PAL[c], false));
+  TILES['rb-' + c] = mkTile(x => shingles(x, PAL[c], true));
+}
+// paredes
 function wall(x) {
   rc(x, 0, 0, 16, 16, '#f4ecd0');
   rc(x, 0, 0, 16, 1, '#dccfa4'); rc(x, 8, 0, 1, 16, '#e6dab4');
   rc(x, 0, 14, 16, 2, '#b8a880');
 }
-TILES.b = mkTile(wall);
-TILES.w = mkTile(x => {
+TILES.wl = mkTile(wall);
+TILES.wn = mkTile(x => {
   wall(x);
   rc(x, 3, 2, 10, 10, '#5a3a20'); rc(x, 4, 3, 8, 8, '#8fd0ff');
   rc(x, 7, 3, 2, 8, '#5a3a20'); rc(x, 4, 6, 8, 1, '#5a3a20');
   rc(x, 4, 3, 2, 2, '#d4efff'); rc(x, 2, 12, 12, 1, '#b8a880');
 });
-TILES.d = mkTile(x => {
+TILES.dr = mkTile(x => {
   wall(x);
   rc(x, 3, 1, 10, 15, '#5a3a20'); rc(x, 4, 2, 8, 14, '#7a4a2a');
   rc(x, 5, 3, 2, 5, '#8c5a34'); rc(x, 9, 3, 2, 5, '#8c5a34');
   rc(x, 5, 9, 2, 5, '#8c5a34'); rc(x, 9, 9, 2, 5, '#8c5a34');
   rc(x, 10, 9, 1, 1, '#ffd84a');
 });
+TILES.sg = mkTile(x => {                                   // tablón de misiones
+  wall(x);
+  rc(x, 2, 2, 12, 10, '#6a4524'); rc(x, 3, 3, 10, 8, '#a8743c');
+  rc(x, 4, 4, 3, 4, '#fffdf0'); rc(x, 8, 4, 4, 3, '#fffdf0'); rc(x, 6, 8, 4, 2, '#fffdf0');
+  rc(x, 5, 4, 1, 1, '#d83030'); rc(x, 10, 4, 1, 1, '#d83030'); rc(x, 7, 8, 1, 1, '#d83030');
+  rc(x, 4, 12, 2, 3, '#6a4524'); rc(x, 10, 12, 2, 3, '#6a4524');
+});
 
 // ------------------------------------------------------------
-//  MAPA (aldea de Rowan)
+//  MAPA: aldea de Rowan (40 x 30 casillas)
 // ------------------------------------------------------------
-const COLS = 32, ROWS = 24;
+const COLS = 40, ROWS = 30;
 const map = Array.from({ length: ROWS }, () => Array(COLS).fill('.'));
 const put = (x, y, t) => { if (x >= 0 && y >= 0 && x < COLS && y < ROWS) map[y][x] = t; };
 const fill = (x, y, w, h, t) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) put(i, j, t); };
-function house(x, y) {
-  fill(x, y, 4, 1, 'R'); fill(x, y + 1, 4, 1, 'r');
-  put(x, y + 2, 'b'); put(x + 1, y + 2, 'w'); put(x + 2, y + 2, 'd'); put(x + 3, y + 2, 'b');
+
+// casa: 2 filas de techo + filas de pared (códigos de casilla)
+function house(x, y, c, rows) {
+  rows[0].forEach((_, i) => { put(x + i, y, 'rt-' + c); put(x + i, y + 1, 'rb-' + c); });
+  rows.forEach((row, j) => row.forEach((k, i) => put(x + i, y + 2 + j, k)));
 }
 
-// flores (con semilla fija para que el mapa sea siempre igual)
-let seed = 7;
+let seed = 11;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-for (let i = 0; i < 70; i++) {
-  const x = 1 + Math.floor(rnd() * (COLS - 2)), y = 1 + Math.floor(rnd() * (ROWS - 2));
+
+// flores sueltas
+for (let i = 0; i < 120; i++) {
+  const x = 2 + Math.floor(rnd() * (COLS - 4)), y = 2 + Math.floor(rnd() * (ROWS - 4));
   if (map[y][x] === '.') map[y][x] = 'f';
 }
-// caminos
-fill(1, 11, 30, 2, 'P'); fill(15, 1, 2, 22, 'P');
-fill(5, 7, 1, 4, 'P'); fill(23, 7, 1, 4, 'P');
-fill(5, 18, 1, 2, 'P'); fill(23, 18, 1, 2, 'P');
-// estanques
-fill(25, 19, 5, 3, 'W'); fill(8, 19, 4, 2, 'W');
-// casas
-house(3, 4); house(21, 4); house(3, 15); house(21, 15);
-// árboles: borde y algunos sueltos
-for (let x = 0; x < COLS; x++) { put(x, 0, 'T'); put(x, ROWS - 1, 'T'); }
-for (let y = 0; y < ROWS; y++) { put(0, y, 'T'); put(COLS - 1, y, 'T'); }
-[[8,3],[10,2],[12,3],[18,2],[19,3],[28,3],[8,8],[10,9],[19,8],[28,8],
- [7,14],[10,15],[12,18],[19,15],[18,18],[27,15],[8,21],[13,21],[19,21],[22,21]
-].forEach(([x, y]) => put(x, y, 'T'));
-
-const SOLID = 'TWRrbwd';
-function isSolid(x, y) {
-  if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return true;
-  return SOLID.includes(map[y][x]);
+// bosque disperso (fuera del pueblo)
+function treeOK(x, y) {
+  if (x >= 13 && x <= 33 && y >= 10 && y <= 27) return false;
+  if (y < 10 && x >= 19 && x <= 28) return false;
+  return true;
 }
+for (let y = 0; y < ROWS; y++)
+  for (let x = 0; x < COLS; x++)
+    if (treeOK(x, y) && rnd() < 0.3) map[y][x] = 'T';
 
-// ------------------------------------------------------------
-//  JUGADOR
-// ------------------------------------------------------------
-const DIRS = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
-const BASE = { right:0, down:Math.PI/2, left:Math.PI, up:-Math.PI/2 };
-const STEP = 0.2;      // segundos por casilla
-const ATT = 0.4;       // duración del ataque
-
-const P = {
-  tx: 15, ty: 12, x: 15 * T, y: 12 * T,
-  fx: 0, fy: 0, gx: 0, gy: 0,
-  dir: 'down', moving: false, t: 0, foot: 1,
-  atk: -1, queueAtk: false
-};
-let time = 0;
-
-// ------------------------------------------------------------
-//  CONTROLES
-// ------------------------------------------------------------
-let held = [];
-addEventListener('keydown', e => {
-  const k = e.key.toLowerCase();
-  const m = { arrowup:'up', arrowdown:'down', arrowleft:'left', arrowright:'right' }[k];
-  if (m) { e.preventDefault(); if (!held.includes(m)) held.push(m); }
-  if (k === 'a' && !e.repeat) P.queueAtk = true;
-});
-addEventListener('keyup', e => {
-  const m = { arrowup:'up', arrowdown:'down', arrowleft:'left', arrowright:'right' }[e.key.toLowerCase()];
-  if (m) held = held.filter(d => d !== m);
-});
-addEventListener('blur', () => { held = []; });
-
-// ------------------------------------------------------------
-//  PARTÍCULAS MORADAS
-// ------------------------------------------------------------
-const parts = [];
-const PCOLS = ['#b44cff', '#d98cff', '#7a2fd1', '#f0c8ff'];
-function spawn(x, y) {
-  parts.push({
-    x, y,
-    vx: (Math.random() - 0.5) * 34, vy: (Math.random() - 0.5) * 34 - 8,
-    life: 0, max: 0.35 + Math.random() * 0.4,
-    c: PCOLS[(Math.random() * 4) | 0], s: Math.random() < 0.3 ? 2 : 1
-  });
-}
-
-// Estado de la espada durante el ataque
-function swordInfo() {
-  const t = P.atk / ATT;
-  const u = t < 0.2 ? 0 : Math.min(1, (t - 0.2) / 0.45);
-  const e = u * u * (3 - 2 * u);
-  return { t, u, ang: BASE[P.dir] + (-1.2 + 2.4 * e) };
-}
-
-// ------------------------------------------------------------
-//  ACTUALIZAR
-// ------------------------------------------------------------
-function update(dt) {
-  time += dt;
-
-  // ataque en curso
-  if (P.atk >= 0) {
-    P.atk += dt;
-    const s = swordInfo();
-    if (s.t >= 0.2 && s.t <= 0.7) {
-      const ox = P.x + 8, oy = P.y + 7;
-      for (let i = 0; i < 3; i++) {
-        const r = i === 0 ? 14 : 6 + Math.random() * 8;
-        spawn(ox + Math.cos(s.ang) * r, oy + Math.sin(s.ang) * r);
-      }
-    }
-    if (P.atk >= ATT) P.atk = -1;
+// lago del oeste con rocas
+for (let y = 1; y < ROWS - 1; y++)
+  for (let x = 1; x < 14; x++) {
+    const dx = (x - 6) / 5.6, dy = (y - 14) / 10.5;
+    if (dx * dx + dy * dy < 1) map[y][x] = 'W';
   }
+[[4,7],[3,10],[5,13],[3,16],[5,19],[7,22],[8,6],[9,17]].forEach(([x, y]) => { if (map[y][x] === 'W') map[y][x] = 'Wo'; });
 
-  // movimiento casilla a casilla
-  if (P.moving) {
-    P.t += dt / STEP;
-    if (P.t >= 1) {
-      P.moving = false; P.x = P.gx; P.y = P.gy;
-      P.tx = Math.round(P.x / T); P.ty = Math.round(P.y / T);
-    } else {
-      P.x = P.fx + (P.gx - P.fx) * P.t;
-      P.y = P.fy + (P.gy - P.fy) * P.t;
-    }
-  }
+// borde de bosque denso (2 casillas)
+for (let x = 0; x < COLS; x++) for (const y of [0, 1, ROWS - 2, ROWS - 1]) put(x, y, 'T');
+for (let y = 0; y < ROWS; y++) for (const x of [0, 1, COLS - 2, COLS - 1]) put(x, y, 'T');
 
-  if (!P.moving && P.atk < 0) {
-    if (P.queueAtk) {
-      P.queueAtk = false; P.atk = 0;
-    } else if (held.length) {
-      const d = held[held.length - 1];
-      P.dir = d;
-      const [dx, dy] = DIRS[d];
-      if (!isSolid(P.tx + dx, P.ty + dy)) {
-        P.moving = true; P.t = 0; P.foot = 3 - P.foot;
-        P.fx = P.x; P.fy = P.y;
-        P.gx = (P.tx + dx) * T; P.gy = (P.ty + dy) * T;
-      }
-    }
-  }
-  P.queueAtk = false;
+// caminos de piedra: anillo + camino interior + camino a la mansión
+fill(14, 11, 19, 1, 'S'); fill(14, 20, 19, 1, 'S');
+fill(14, 11, 1, 10, 'S'); fill(32, 11, 1, 10, 'S');
+fill(14, 16, 19, 1, 'S');
+fill(23, 6, 2, 5, 'S');
+// salida sur (camino de tierra)
+fill(22, 21, 2, 9, 'P');
 
-  // partículas
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const p = parts[i];
-    p.life += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= 12 * dt;
-    if (p.life >= p.max) parts.splice(i, 1);
-  }
-}
+// hierba alta
+fill(33, 4, 5, 7, 'G'); fill(33, 22, 5, 5, 'G');
+fill(14, 22, 6, 3, 'G'); fill(26, 22, 5, 3, 'G');
 
-// ------------------------------------------------------------
-//  DIBUJAR
-// ------------------------------------------------------------
-function drawTileAt(x, y) {
-  const t = map[y][x];
-  let img;
-  if (t === '.') img = TILES['g' + ((x + y) % 2)];
-  else if (t === 'f') img = TILES['f' + ((x * 3 + y) % 3)];
-  else if (t === 'W') img = TILES['W' + (Math.floor(time * 1.5) % 2)];
-  else img = TILES[t];
-  g.drawImage(img, x * T, y * T);
-}
+// jardín de flores en la plaza
+for (let y = 17; y <= 19; y++) for (let x = 22; x <= 25; x++) map[y][x] = 'f';
 
-function drawSword(ang) {
-  const ox = P.x + 8, oy = P.y + 7;
-  const pts = [];
-  for (let r = 3; r <= 13; r++) {
-    pts.push([Math.round(ox + Math.cos(ang) * r), Math.round(oy + Math.sin(ang) * r), r]);
-  }
-  g.fillStyle = '#1a1220';
-  pts.forEach(([x, y]) => g.fillRect(x - 1, y - 1, 4, 4));
-  pts.forEach(([x, y, r]) => {
-    g.fillStyle = r <= 4 ? '#6b4a2f' : r >= 12 ? '#f0c8ff' : '#dfe9ff';
-    g.fillRect(x, y, 2, 2);
-  });
-  // guarda dorada
-  const gx = ox + Math.cos(ang) * 5, gy = oy + Math.sin(ang) * 5;
-  g.fillStyle = '#d9b44a';
-  for (let s = -2; s <= 2; s++) {
-    g.fillRect(Math.round(gx + Math.cos(ang + Math.PI / 2) * s), Math.round(gy + Math.sin(ang + Math.PI / 2) * s), 1, 1);
-  }
-}
+// edificios
+house(20, 2, 'p', [                                   // edificio grande (techo morado)
+  ['wn','wn','wn','wn','wn','wn','wn','wn'],
+  ['wl','wn','wl','dr','dr','wl','wn','wl']
+]);
+house(16, 12, 'u', [['wn','wl','dr','wn']]);          // casa azul
+house(28, 12, 'u', [['wn','wl','dr','wn']]);          // casa azul
+house(22, 12, 'n', [['wn','sg','dr','wn']]);          // CASA DEL MAPACHE
+house(17, 17, 'u', [['wn','wl','dr','wn']]);          // casa azul
+house(27, 17, 'r', [['wn','wl','dr','wn']]);          // casa naranja
+// caminitos desde las puertas de arriba
+put(18, 15, 'S'); put(30, 15, 'S'); put(24, 15, 'S');
 
-function drawTrail(s) {
-  if (s.u <= 0 || s.u >= 1) return;
-  for (let k = 1; k <= 6; k++) {
-    const a = s.ang - k * 0.18;
-    g.globalAlpha = 0.6 - k * 0.08;
-    g.fillStyle = k < 3 ? '#d98cff' : '#8a3fe0';
-    [10, 12, 14].forEach(r => {
-      g.fillRect(Math.round(P.x + 8 + Math.cos(a) * r), Math.round(P.y + 7 + Math.sin(a) * r), 2, 2);
-    });
-  }
-  g.globalAlpha = 1;
-}
-
-function render() {
-  const camX = Math.round(Math.min(Math.max(P.x + 8 - W / 2, 0), COLS * T - W));
-  const camY = Math.round(Math.min(Math.max(P.y + 8 - H / 2, 0), ROWS * T - H));
-  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-  g.save();
-  g.translate(-camX, -camY);
-
-  // mundo
-  for (let y = Math.floor(camY / T); y <= Math.ceil((camY + H) / T); y++)
-    for (let x = Math.floor(camX / T); x <= Math.ceil((camX + W) / T); x++)
-      if (x >= 0 && y >= 0 && x < COLS && y < ROWS) drawTileAt(x, y);
-
-  // personaje
-  const attacking = P.atk >= 0;
-  const s = attacking ? swordInfo() : null;
-  const pose = attacking ? 0 : (P.moving ? P.foot : 0);
-  const flame = Math.floor(time * 6) % 2;
-  let dy = 0;
-  if (P.moving && P.t > 0.2 && P.t < 0.8) dy = -1;          // pequeño rebote al andar
-  let lx = 0, ly = 0;
-  if (attacking && s.t > 0.2 && s.t < 0.65) {                // se inclina al dar el tajo
-    lx = DIRS[P.dir][0]; ly = DIRS[P.dir][1];
-  }
-
-  if (attacking && P.dir === 'up' && s.t < 0.92) { drawTrail(s); drawSword(s.ang); }
-
-  // sombra
-  g.fillStyle = 'rgba(0,0,0,0.25)';
-  g.fillRect(Math.round(P.x) + 4, Math.round(P.y) + 12, 8, 1);
-  g.fillRect(Math.round(P.x) + 3, Math.round(P.y) + 13, 10, 2);
-  g.fillRect(Math.round(P.x) + 4, Math.round(P.y) + 15, 8, 1);
-
-  g.drawImage(getSprite(P.dir, pose, flame), Math.round(P.x) - 1 + lx, Math.round(P.y) - 9 + dy + ly);
-
-  if (attacking && P.dir !== 'up' && s.t < 0.92) { drawTrail(s); drawSword(s.ang); }
-
-  // partículas moradas
-  parts.forEach(p => {
-    g.globalAlpha = 1 - p.life / p.max;
-    g.fillStyle = p.c;
-    g.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
-  });
-  g.globalAlpha = 1;
-
-  g.restore();
-}
-
-// ------------------------------------------------------------
-//  BUCLE DEL JUEGO
-// ------------------------------------------------------------
-let last = 0;
-function loop(ts) {
-  const dt = Math.min((ts - last) / 1000 || 0, 0.05);
-  last = ts;
-  update(dt);
-  render();
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
-</script>
-</body>
-</html>
+// vallas, cartel y rocas
+fill(13, 25, 9, 1, 'F'); fill(24, 25, 10, 1, 'F');
+put(21, 24,
