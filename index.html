@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokémon Style Village</title>
+  <style>
+    body {
+      margin: 0;
+      background: #1f2d1f;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      background: #8bd36e;
+      border: 4px solid #2f4d2f;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="640" height="480"></canvas>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const TILE = 32;
+    const WORLD_W = 20;
+    const WORLD_H = 15;
+
+    const map = [
+      "####################",
+      "#......H....H.....#",
+      "#......HH...H.....#",
+      "#..................#",
+      "#..TT........TT...#",
+      "#..TT..####..TT...#",
+      "#..................#",
+      "#..H.....##....H..#",
+      "#..H.............##",
+      "#......##.......#.#",
+      "#...............#.#",
+      "#..TT......TT....#",
+      "#................##",
+      "#....H....H.......#",
+      "####################"
+    ];
+
+    const player = {
+      x: 5 * TILE + TILE / 2,
+      y: 5 * TILE + TILE / 2,
+      size: 18,
+      speed: 2.1,
+      dir: "down"
+    };
+
+    const keys = {};
+
+    function drawTile(x, y, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+    }
+
+    function drawGrass() {
+      for (let y = 0; y < WORLD_H; y++) {
+        for (let x = 0; x < WORLD_W; x++) {
+          ctx.fillStyle = "#8fd86e";
+          ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+
+          // grass detail
+          ctx.fillStyle = "rgba(255,255,255,0.08)";
+          ctx.fillRect(x * TILE + 6, y * TILE + 6, 2, 2);
+          ctx.fillRect(x * TILE + 18, y * TILE + 22, 2, 2);
+          ctx.fillRect(x * TILE + 10, y * TILE + 16, 2, 2);
+        }
+      }
+    }
+
+    function drawHouse(x, y) {
+      const px = x * TILE;
+      const py = y * TILE;
+
+      // roof
+      ctx.fillStyle = "#c84b3b";
+      ctx.beginPath();
+      ctx.moveTo(px + 2, py + 20);
+      ctx.lineTo(px + 16, py + 4);
+      ctx.lineTo(px + 30, py + 20);
+      ctx.closePath();
+      ctx.fill();
+
+      // body
+      ctx.fillStyle = "#f3d9b1";
+      ctx.fillRect(px + 6, py + 20, 20, 18);
+
+      // door
+      ctx.fillStyle = "#7c4a2c";
+      ctx.fillRect(px + 13, py + 28, 6, 10);
+
+      // chimney
+      ctx.fillStyle = "#7d5c43";
+      ctx.fillRect(px + 22, py + 8, 4, 10);
+
+      // windows
+      ctx.fillStyle = "#9ad8ff";
+      ctx.fillRect(px + 9, py + 24, 5, 5);
+      ctx.fillRect(px + 18, py + 24, 5, 5);
+    }
+
+    function drawTree(x, y) {
+      const px = x * TILE;
+      const py = y * TILE;
+
+      ctx.fillStyle = "#7d5a2c";
+      ctx.fillRect(px + 14, py + 16, 4, 12);
+
+      ctx.fillStyle = "#4caf50";
+      ctx.beginPath();
+      ctx.arc(px + 16, py + 12, 11, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawMap() {
+      drawGrass();
+
+      for (let y = 0; y < map.length; y++) {
+        for (let x = 0; x < map[y].length; x++) {
+          const tile = map[y][x];
+
+          if (tile === "H") drawHouse(x, y);
+          if (tile === "T") drawTree(x, y);
+          if (tile === "#") {
+            ctx.fillStyle = "#5d7a4f";
+            ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+            ctx.fillStyle = "#3f5138";
+            ctx.fillRect(x * TILE, y * TILE, TILE, 2);
+          }
+        }
+      }
+    }
+
+    function drawPath() {
+      // Simple road-like paths
+      ctx.fillStyle = "#b4a57d";
+      ctx.fillRect(0, 6 * TILE, 20 * TILE, 32);
+      ctx.fillRect(8 * TILE, 0, 32, 15 * TILE);
+    }
+
+    function drawPlayer() {
+      const px = player.x;
+      const py = player.y;
+      const s = player.size;
+
+      // shadow
+      ctx.fillStyle = "rgba(0,0,0,0.2)";
+      ctx.beginPath();
+      ctx.ellipse(px, py + s/2 + 6, s*0.8, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (player.dir === "up") {
+        // back view - facing away
+        ctx.fillStyle = "#4a2d1d";
+        ctx.fillRect(px - 9, py - 18, 18, 8);
+        
+        ctx.fillStyle = "#f4d5a3";
+        ctx.fillRect(px - 8, py - 6, 16, 18);
+
+        ctx.fillStyle = "#4b8bff";
+        ctx.fillRect(px - 10, py + 10, 20, 12);
+
+        ctx.fillStyle = "#2d2d2d";
+        ctx.fillRect(px - 5, py + 22, 4, 10);
+        ctx.fillRect(px + 1, py + 22, 4, 10);
+
+      } else if (player.dir === "down") {
+        // front view
+        ctx.fillStyle = "#4a2d1d";
+        ctx.fillRect(px - 10, py - 16, 20, 8);
+        
+        ctx.fillStyle = "#f4d5a3";
+        ctx.fillRect(px - 8, py - 8, 16, 18);
+
+        ctx.fillStyle = "#111";
+        ctx.fillRect(px - 4, py - 9, 2, 2);
+        ctx.fillRect(px + 2, py - 9, 2, 2);
+
+        ctx.fillStyle = "#4b8bff";
+        ctx.fillRect(px - 10, py + 10, 20, 12);
+
+        ctx.fillStyle = "#2d2d2d";
+        ctx.fillRect(px - 5, py + 22, 4, 10);
+        ctx.fillRect(px + 1, py + 22, 4, 10);
+
+      } else if (player.dir === "left") {
+        // left side view
+        ctx.fillStyle = "#4a2d1d";
+        ctx.fillRect(px - 10, py - 16, 15, 8);
+        
+        ctx.fillStyle = "#f4d5a3";
+        ctx.fillRect(px - 8, py - 8, 14, 18);
+
+        ctx.fillStyle = "#111";
+        ctx.fillRect(px - 5, py - 9, 2, 2);
+
+        ctx.fillStyle = "#4b8bff";
+        ctx.fillRect(px - 10, py + 10, 18, 12);
+
+        ctx.fillStyle = "#2d2d2d";
+        ctx.fillRect(px - 5, py + 22, 4, 10);
+        ctx.fillRect(px + 1, py + 22, 4, 10);
+
+      } else if (player.dir === "right") {
+        // right side view
+        ctx.fillStyle = "#4a2d1d";
+        ctx.fillRect(px - 5, py - 16, 15, 8);
+        
+        ctx.fillStyle = "#f4d5a3";
+        ctx.fillRect(px - 6, py - 8, 14, 18);
+
+        ctx.fillStyle = "#111";
+        ctx.fillRect(px + 3, py - 9, 2, 2);
+
+        ctx.fillStyle = "#4b8bff";
+        ctx.fillRect(px - 8, py + 10, 18, 12);
+
+        ctx.fillStyle = "#2d2d2d";
+        ctx.fillRect(px - 5, py + 22, 4, 10);
+        ctx.fillRect(px + 1, py + 22, 4, 10);
+      }
+    }
+
+    function update() {
+      let dx = 0;
+      let dy = 0;
+
+      if (keys["ArrowLeft"] || keys["a"]) { dx = -1; player.dir = "left"; }
+      if (keys["ArrowRight"] || keys["d"]) { dx = 1; player.dir = "right"; }
+      if (keys["ArrowUp"] || keys["w"]) { dy = -1; player.dir = "up"; }
+      if (keys["ArrowDown"] || keys["s"]) { dy = 1; player.dir = "down"; }
+
+      const nextX = player.x + dx * player.speed;
+      const nextY = player.y + dy * player.speed;
+
+      // simple collision with walls
+      const tileX = Math.floor(nextX / TILE);
+      const tileY = Math.floor(nextY / TILE);
+
+      const tile = map[tileY]?.[tileX];
+      if (tile !== "#" && tile !== undefined) {
+        player.x = nextX;
+      }
+
+      const tileY2 = Math.floor(player.y / TILE);
+      const tileX2 = Math.floor(nextX / TILE);
+      const tile2 = map[tileY2]?.[tileX2];
+      if (tile2 !== "#" && tile2 !== undefined) {
+        player.x = nextX;
+      }
+
+      const tileX3 = Math.floor(player.x / TILE);
+      const tileY3 = Math.floor(nextY / TILE);
+
+      const tile3 = map[tileY3]?.[tileX3];
+      if (tile3 !== "#" && tile3 !== undefined) {
+        player.y = nextY;
+      }
+
+      // keep player inside canvas
+      player.x = Math.max(10, Math.min(canvas.width - 10, player.x));
+      player.y = Math.max(10, Math.min(canvas.height - 10, player.y));
+    }
+
+    function loop() {
+      update();
+      drawMap();
+      drawPath();
+      drawPlayer();
+      requestAnimationFrame(loop);
+    }
+
+    document.addEventListener("keydown", e => {
+      keys[e.key] = true;
+      keys[e.key.toLowerCase()] = true;
+    });
+
+    document.addEventListener("keyup", e => {
+      keys[e.key] = false;
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    loop();
+  </script>
+</body>
+</html>
