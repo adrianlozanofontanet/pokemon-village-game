@@ -5,20 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MagiK Kingdom</title>
 <style>
-  html, body { margin:0; height:100%; background:#000; overflow:hidden;
-               font-family:Arial,sans-serif; }
-  #stage { position:fixed; left:0; top:0; width:100%; height:100%;
-           overflow:hidden; background:#000; }
-  #c, #ui { position:absolute; left:0; top:0; display:block; }
-  #c { image-rendering:pixelated; }
-  #ui { pointer-events:none; }
+  html, body { margin:0; height:100%; background:#000; overflow:hidden; }
+  #c { position:fixed; left:0; top:0; display:block; image-rendering:pixelated; }
 </style>
 </head>
 <body>
-<div id="stage">
-  <canvas id="c"></canvas>
-  <canvas id="ui"></canvas>
-</div>
+<canvas id="c"></canvas>
 
 <script>
 // ============================================================
@@ -26,8 +18,6 @@
 // ============================================================
 const canvas = document.getElementById('c');
 const g = canvas.getContext('2d');
-const ui = document.getElementById('ui');
-const u = ui.getContext('2d');
 const T = 16;
 let W = 240, H = 160;      // tamaño de la vista en píxeles del juego (se calcula solo)
 let K = 3;                 // zoom: píxeles de pantalla por cada píxel del juego
@@ -40,22 +30,106 @@ function resize() {
   canvas.width = W; canvas.height = H;
   g.imageSmoothingEnabled = false;
   canvas.style.width = (W * K) + 'px'; canvas.style.height = (H * K) + 'px';
-  ui.width = W * K; ui.height = H * K;
-  ui.style.width = (W * K) + 'px'; ui.style.height = (H * K) + 'px';
 }
 addEventListener('resize', resize);
 resize();
+
+// ------------------------------------------------------------
+//  TEXTO PIXELADO (letra irregular, sin suavizar)
+//  Se dibuja la frase pequeña y se corta cada píxel a "sí / no".
+// ------------------------------------------------------------
+const FONT = 'bold 9px Arial, Helvetica, sans-serif';
+const tctx = document.createElement('canvas').getContext('2d');
+tctx.font = FONT;
+const textCache = new Map();
+const hexRGB = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+function textW(s) { tctx.font = FONT; return tctx.measureText(s).width; }
+function textImg(s, color) {
+  const key = color + '|' + s;
+  let c = textCache.get(key);
+  if (c) return c;
+  const w = Math.ceil(textW(s)) + 2, h = 13;
+  c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  x.font = FONT; x.textBaseline = 'top'; x.fillStyle = color; x.fillText(s, 1, 1);
+  const id = x.getImageData(0, 0, w, h), d = id.data, [r, gg, b] = hexRGB(color);
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] > 110) { d[i] = r; d[i+1] = gg; d[i+2] = b; d[i+3] = 255; } else d[i + 3] = 0;
+  }
+  x.putImageData(id, 0, 0);
+  if (textCache.size > 800) textCache.clear();
+  textCache.set(key, c);
+  return c;
+}
+// clip = hasta qué ancho se enseña (efecto máquina de escribir); sc = escala
+function ptext(s, x, y, color, clip, sc) {
+  sc = sc || 1;
+  const c = textImg(s, color);
+  let w = c.width;
+  if (clip !== undefined && clip !== null) w = Math.min(w, Math.max(0, clip));
+  if (w <= 0) return;
+  g.drawImage(c, 0, 0, w, c.height, Math.round(x), Math.round(y), w * sc, c.height * sc);
+}
+function stext(s, x, y, color, sc) {                 // texto con sombra
+  ptext(s, x + (sc || 1), y + (sc || 1), '#000000', undefined, sc);
+  ptext(s, x, y, color, undefined, sc);
+}
+function wrapText(text, maxW) {
+  const words = text.split(' '), lines = [];
+  let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (textW(t) > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
 
 // ------------------------------------------------------------
 //  TEXTOS (cámbialos a tu gusto)
 // ------------------------------------------------------------
 const TXT = {
   saludo: '¡Hola, viajero! Soy el mapache de las misiones. Hay uno como yo en cada aldea. ¿Quieres echar una mano a la gente?',
-  oferta: 'Unos hongos brillantes se perdieron en el bosque de Rowan. Tráeme tres y te daré una recompensa. ¿Aceptas la misión?',
+  oferta1: '¡Unos hongos brillantes han desaparecido del bosque de Rowan! ¡Los necesito con urgencia!',
+  oferta2: 'Tráeme tres y te daré una recompensa. ¿Aceptas la misión?',
   rechazo: 'Sin prisa. Cuando quieras, vuelve y pídeme la misión.',
   recordatorio: 'Recuerda: tráeme tres hongos brillantes del bosque. ¡Yo te esperaré aquí con tu recompensa!',
   cartel: 'ALDEA DE ROWAN. Al sur sale el camino hacia las otras tierras.'
 };
+
+// Test del dragón: cada respuesta suma un punto a un tipo (k)
+const QUIZ = [
+  { q: 'Un monstruo gigante bloquea el camino del pueblo. ¿Qué haces?', a: [
+    { t: 'Me escondo y observo',       k: 'agua' },
+    { t: 'Le planto cara',             k: 'fuego' },
+    { t: 'Busco un atajo secreto',     k: 'aire' },
+    { t: 'Protejo a los aldeanos',     k: 'tierra' } ] },
+  { q: 'Encuentras un cofre misterioso en una cueva oscura. ¿Qué haces?', a: [
+    { t: 'Lo abro de golpe',           k: 'fuego' },
+    { t: 'Busco a su dueño',           k: 'tierra' },
+    { t: 'Lo estudio con calma',       k: 'agua' },
+    { t: 'Lo cojo y salgo corriendo',  k: 'aire' } ] },
+  { q: 'Una tormenta te sorprende en mitad del bosque. ¿Qué haces?', a: [
+    { t: 'Subo a un árbol a mirar',    k: 'aire' },
+    { t: 'Avanzo sin parar',           k: 'fuego' },
+    { t: 'Espero tranquilo',           k: 'agua' },
+    { t: 'Me refugio bajo un roble',   k: 'tierra' } ] },
+  { q: '¿Qué es lo que más valoras de un amigo?', a: [
+    { t: 'Su lealtad',                 k: 'tierra' },
+    { t: 'Su libertad',                k: 'aire' },
+    { t: 'Su valentía',                k: 'fuego' },
+    { t: 'Su sabiduría',               k: 'agua' } ] }
+];
+const DESC = {
+  fuego:  'Es un dragón de FUEGO: valiente y ardiente. Nunca retrocede ante un reto. Cuídalo bien.',
+  agua:   'Es un dragón de AGUA: calmado y sabio. Observa antes de actuar. Cuídalo bien.',
+  tierra: 'Es un dragón de TIERRA: leal y protector. Su fuerza defiende a los suyos. Cuídalo bien.',
+  aire:   'Es un dragón de AIRE: libre y veloz. Nadie puede atraparlo. Cuídalo bien.'
+};
+
+// Datos del jugador (edítalos cuando añadas combate)
+const dragon = { type: null };
+const stats = { vida: 5, vidaMax: 5, magia: 1, magiaMax: 5, fuerza: 2, fuerzaMax: 5, monedas: 0 };
 
 // ------------------------------------------------------------
 //  PALETA DEL PERSONAJE
@@ -94,6 +168,11 @@ function flip(c) {
   const x = f.getContext('2d');
   x.translate(c.width, 0); x.scale(-1, 1); x.drawImage(c, 0, 0);
   return f;
+}
+function hash(x, y) {                                  // número "aleatorio" fijo por casilla
+  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return (h ^ (h >>> 16)) >>> 0;
 }
 
 // ------------------------------------------------------------
@@ -172,7 +251,7 @@ function drawSide(R, pose, f) {
 }
 
 // ------------------------------------------------------------
-//  EL MAPACHE: gafas redondas y chaqueta marrón
+//  EL MAPACHE (gafas redondas y chaqueta marrón)
 // ------------------------------------------------------------
 function drawRaccoon(R, f) {
   const G = '#8a8f99', K2 = '#3a3d46', Wh = '#e6e9ee';
@@ -182,18 +261,18 @@ function drawRaccoon(R, f) {
     R(x, 21 - 2 * i, i < 2 ? 3 : 2, 2, i % 2 ? K2 : G);
   }
   R(5,21,2,1,G); R(9,21,2,1,G); R(4,22,3,2,K2); R(9,22,3,2,K2);
-  R(4,15,8,6,J); R(4,19,8,2,Jd);                      // chaqueta
+  R(4,15,8,6,J); R(4,19,8,2,Jd);
   R(7,15,2,6,'#efe6d0');
   R(5,15,2,2,Jl); R(9,15,2,2,Jl);
   R(6,18,1,1,'#ffd84a'); R(9,18,1,1,'#ffd84a');
   R(4,19,3,1,Jdd); R(9,19,3,1,Jdd);
   R(2,16,2,4,J); R(12,16,2,4,J); R(2,20,2,1,K2); R(12,20,2,1,K2);
-  R(3,5,3,3,G); R(10,5,3,3,G); R(4,6,1,2,K2); R(11,6,1,2,K2);   // orejas
+  R(3,5,3,3,G); R(10,5,3,3,G); R(4,6,1,2,K2); R(11,6,1,2,K2);
   R(3,7,10,8,G); R(5,7,6,1,'#a3a8b2');
   R(7,7,2,2,K2);
-  R(3,9,10,4,K2);                                     // antifaz
-  R(5,13,6,2,Wh); R(7,13,2,1,'#22222a');              // hocico y nariz
-  [3, 9].forEach(x0 => {                              // gafas redondas
+  R(3,9,10,4,K2);
+  R(5,13,6,2,Wh); R(7,13,2,1,'#22222a');
+  [3, 9].forEach(x0 => {
     R(x0+1,9,2,1,'#e8c86a'); R(x0+1,12,2,1,'#e8c86a');
     R(x0,10,1,2,'#e8c86a'); R(x0+3,10,1,2,'#e8c86a');
     R(x0+1,10,2,2,'#cfe8ff');
@@ -201,6 +280,25 @@ function drawRaccoon(R, f) {
   R(7,10,2,1,'#e8c86a');
   R(5,11,1,1,'#22222a'); R(10,11,1,1,'#22222a');
   R(4,10,1,1,'#ffffff'); R(11,10,1,1,'#ffffff');
+}
+
+// ------------------------------------------------------------
+//  EL SABIO DE LOS DRAGONES (túnica morada, barba y báculo con orbe)
+// ------------------------------------------------------------
+function drawSage(R, f) {
+  const P = '#6a3fb0', Pd = '#4a2a80', Pl = '#8a60d0', GD = '#d9b44a';
+  const S = '#f6cfa3', Sd = '#d9a577', WH = '#f4f4f8', WD = '#cfcfe0', EY = '#1b1b2a';
+  R(14,7,1,16,'#7a5230');                                     // báculo
+  R(13,3,3,3,f ? '#a8e0ff' : '#e8c8ff'); R(14,2,1,1,'#ffffff'); // orbe que brilla
+  R(5,21,3,3,'#4e3220'); R(9,21,3,3,'#4e3220');               // pies
+  R(3,13,10,8,P); R(3,19,10,1,Pd); R(3,20,10,1,GD); R(3,13,10,1,Pl);   // túnica
+  R(1,13,3,6,P); R(12,13,2,6,P); R(1,19,2,1,S); R(13,19,2,1,S);        // mangas y manos
+  R(5,6,6,4,S); R(6,7,1,1,EY); R(9,7,1,1,EY); R(7,8,2,1,Sd);           // cara
+  R(6,6,2,1,WH); R(8,6,2,1,WH);                                         // cejas
+  R(5,9,6,1,WH); R(5,10,6,5,WH); R(6,15,4,2,WH); R(7,17,2,1,WH);       // bigote y barba
+  R(5,10,1,4,WD); R(10,11,1,4,WD);
+  R(7,0,2,1,P); R(6,1,4,1,P); R(5,2,6,2,P); R(5,3,6,1,GD);             // sombrero
+  R(3,4,10,2,Pd); R(3,4,10,1,Pl); R(8,2,1,1,'#fff6b0');
 }
 
 const spriteCache = {};
@@ -217,15 +315,202 @@ function getSprite(dir, pose, flame) {
   outline(c);
   return (spriteCache[key] = (dir === 'right') ? flip(c) : c);
 }
-function getRaccoon(f) {
-  const key = 'rac' + f;
+function npcSprite(kind, f) {
+  const key = kind + f;
   if (spriteCache[key]) return spriteCache[key];
   const c = document.createElement('canvas');
   c.width = 18; c.height = 26;
   const x = c.getContext('2d');
-  drawRaccoon((a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a + 1, b + 1, w, h); }, f);
+  const R = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a + 1, b + 1, w, h); };
+  if (kind === 'sage') drawSage(R, f); else drawRaccoon(R, f);
   outline(c);
   return (spriteCache[key] = c);
+}
+
+// ------------------------------------------------------------
+//  RETRATOS (cara de quien habla) - 32x32 con 4 expresiones
+//  expresiones: normal, feliz, sorpresa, serio
+// ------------------------------------------------------------
+function pRaccoon(R, face) {
+  const G='#8a8f99', Gl='#a3a8b2', K2='#3a3d46', Wh='#e6e9ee', J='#8a5a32', Jl='#a9754a';
+  const GL='#e8c86a', LN='#cfe8ff', DK='#22222a';
+  R(2,26,28,6,J); R(2,26,28,1,Jl); R(6,25,7,6,Jl); R(19,25,7,6,Jl); R(13,25,6,7,'#efe6d0');
+  R(9,29,2,2,'#ffd84a'); R(21,29,2,2,'#ffd84a');
+  R(3,2,8,8,G); R(21,2,8,8,G); R(5,4,4,5,K2); R(23,4,4,5,K2); R(3,2,8,1,Gl); R(21,2,8,1,Gl);
+  R(7,7,18,1,G); R(5,8,22,3,G); R(4,11,24,14,G); R(8,8,16,1,Gl);
+  R(14,7,4,6,K2);
+  R(4,14,24,8,K2); R(5,13,22,1,K2);
+  R(9,21,14,5,Wh); R(11,26,10,1,Wh);
+  R(14,20,4,3,DK); R(15,20,1,1,'#777777');
+  R(1,22,5,1,K2); R(1,24,5,1,K2); R(26,22,5,1,K2); R(26,24,5,1,K2);
+  const ring = (cx, cy) => {                                   // gafas redondas
+    for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) {
+      const d = Math.hypot(dx, dy);
+      if (d <= 3.4) R(cx+dx, cy+dy, 1, 1, LN); else if (d <= 4.6) R(cx+dx, cy+dy, 1, 1, GL);
+    }
+  };
+  ring(10, 17); ring(22, 17); R(15, 16, 3, 1, GL);
+  const pup = (cx, cy) => { R(cx-1, cy, 2, 2, DK); R(cx-1, cy, 1, 1, '#ffffff'); };
+  if (face === 'feliz') {
+    [10, 22].forEach(cx => { R(cx-2,18,1,1,DK); R(cx-1,17,2,1,DK); R(cx+1,18,1,1,DK); });
+    R(12,24,1,1,K2); R(13,25,6,1,K2); R(19,24,1,1,K2); R(14,26,4,1,'#c04040');
+  } else if (face === 'sorpresa') {
+    [10, 22].forEach(cx => { R(cx-1,16,3,3,'#ffffff'); R(cx,17,1,1,DK); R(cx-3,11,6,1,K2); });
+    R(14,24,4,3,'#5a1a1a'); R(15,25,2,1,'#c04040');
+  } else if (face === 'serio') {
+    pup(10, 17); pup(22, 17);
+    R(5,11,3,1,K2); R(8,12,3,1,K2); R(11,13,2,1,K2);
+    R(24,11,3,1,K2); R(21,12,3,1,K2); R(19,13,2,1,K2);
+    R(13,25,6,1,K2);
+  } else {
+    pup(10, 17); pup(22, 17); R(13,25,6,1,'#5a5a64');
+  }
+}
+function pKen(R, face) {
+  const S='#f6cfa3', Sd='#d9a577', H='#f28a24', HR='#d8381d', HY='#ffc04d';
+  const N='#243a7a', Nd='#18265a', RD='#c8312b', EY='#1b1b2a', BR='#b8381d';
+  R(3,27,26,5,N); R(3,27,26,1,Nd); R(13,26,6,6,RD); R(10,27,3,4,RD); R(19,27,3,4,RD);
+  R(12,24,8,3,S); R(12,26,8,1,Sd);
+  R(4,9,4,14,H); R(24,9,4,14,H); R(3,14,2,8,HR); R(27,14,2,8,HR);
+  R(8,10,16,14,S);
+  R(6,5,20,7,H); R(7,3,18,3,H); R(9,1,4,4,H); R(14,0,5,5,H); R(20,2,4,4,H); R(5,6,2,5,H);
+  R(15,0,2,1,HY); R(10,1,1,2,HY); R(21,2,1,2,HY);
+  R(10,4,2,8,HR); R(17,3,2,9,HR); R(23,6,1,6,HR); R(6,8,1,6,HR);
+  R(8,11,5,3,H); R(19,11,5,3,H); R(14,11,4,5,H); R(14,12,1,3,HR);
+  R(15,20,2,1,Sd); R(9,20,2,1,'#f0a890'); R(21,20,2,1,'#f0a890');
+  if (face === 'feliz') {
+    [12, 20].forEach(x => { R(x-1,19,1,1,EY); R(x,18,2,1,EY); R(x+2,19,1,1,EY); });
+    R(10,15,4,1,BR); R(18,15,4,1,BR);
+    R(14,22,4,1,'#ffffff'); R(13,22,1,1,'#b86a4a'); R(18,22,1,1,'#b86a4a'); R(14,23,4,1,'#b86a4a');
+  } else if (face === 'sorpresa') {
+    R(10,16,4,5,'#ffffff'); R(18,16,4,5,'#ffffff'); R(11,18,2,2,EY); R(19,18,2,2,EY);
+    R(10,14,4,1,BR); R(18,14,4,1,BR); R(15,22,2,3,'#5a1a1a');
+  } else if (face === 'serio') {
+    R(11,17,2,3,EY); R(19,17,2,3,EY);
+    R(10,15,2,1,BR); R(12,16,2,1,BR); R(20,15,2,1,BR); R(18,16,2,1,BR);
+    R(14,22,4,1,'#8a4a3a');
+  } else {
+    R(11,17,2,3,EY); R(19,17,2,3,EY); R(11,17,1,1,'#ffffff'); R(19,17,1,1,'#ffffff');
+    R(10,15,4,1,BR); R(18,15,4,1,BR); R(14,22,4,1,'#b86a4a');
+  }
+}
+function pSage(R, face) {
+  const P='#6a3fb0', Pd='#4a2a80', Pl='#8a60d0', GD='#d9b44a', S='#f0c8a0', Sd='#d09870';
+  const WH='#f4f4f8', WD='#cfcfe0', EY='#1b1b2a';
+  R(2,28,28,4,P); R(2,28,28,1,Pl); R(14,28,4,4,GD);
+  R(9,8,14,10,S); R(9,8,14,2,Sd); R(8,12,1,3,S); R(23,12,1,3,S); R(15,13,3,4,Sd);
+  R(8,17,16,3,WH); R(9,20,14,6,WH); R(11,26,10,3,WH); R(13,29,6,2,WH);
+  R(8,17,2,3,WD); R(9,20,1,6,WD); R(14,22,1,5,WD); R(18,21,1,6,WD);
+  [[14,4],[12,8],[10,12],[8,16],[6,20]].forEach(([x, w], i) => R(x, i, w, 1, P));
+  R(8,4,16,1,GD); R(3,5,26,3,Pd); R(3,5,26,1,Pl);
+  R(16,1,1,3,'#fff6b0'); R(15,2,3,1,'#fff6b0');
+  if (face === 'feliz') {
+    R(11,13,1,1,EY); R(12,12,2,1,EY); R(14,13,1,1,EY); R(19,13,1,1,EY); R(20,12,2,1,EY); R(22,13,1,1,EY);
+    R(11,10,5,2,WH); R(17,10,5,2,WH); R(10,15,2,1,'#e8a090'); R(21,15,2,1,'#e8a090');
+    R(14,19,4,1,'#c07060');
+  } else if (face === 'sorpresa') {
+    R(11,11,4,4,WH); R(18,11,4,4,WH); R(12,12,2,2,EY); R(19,12,2,2,EY);
+    R(11,9,5,1,WH); R(17,9,5,1,WH); R(14,19,4,1,'#5a1a1a');
+  } else if (face === 'serio') {
+    R(12,12,2,2,EY); R(19,12,2,2,EY);
+    R(11,10,5,1,WH); R(12,11,4,1,WH); R(17,10,5,1,WH); R(17,11,4,1,WH);
+  } else {
+    R(12,12,2,2,EY); R(19,12,2,2,EY); R(11,10,5,2,WH); R(17,10,5,2,WH);
+  }
+}
+const PORTRAIT_FN = { raccoon: pRaccoon, ken: pKen, sage: pSage };
+const portraitCache = {};
+function getPortrait(kind, face) {
+  const key = kind + '|' + face;
+  if (!portraitCache[key]) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 34;
+    const x = c.getContext('2d');
+    PORTRAIT_FN[kind]((a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a + 1, b + 1, w, h); }, face);
+    outline(c);
+    portraitCache[key] = c;
+  }
+  return portraitCache[key];
+}
+
+// ------------------------------------------------------------
+//  EL HUEVO DE DRAGÓN (4 tipos) - animado
+// ------------------------------------------------------------
+const EGG_W = [4,6,8,10,12,12,14,14,14,14,14,14,14,12,12,10,8,6];   // anchura por fila
+const EGG_COL = {
+  fuego:  { b:'#e8502a', l:'#ff9a4a', d:'#a82a1a', s:'#ffd84a', g:'#ff8a30', n:'FUEGO' },
+  agua:   { b:'#3a8ae8', l:'#7ac0ff', d:'#2058b0', s:'#bfe6ff', g:'#60b0ff', n:'AGUA' },
+  tierra: { b:'#6a9a3a', l:'#9acb5a', d:'#3e6a24', s:'#8a5a32', g:'#8ad050', n:'TIERRA' },
+  aire:   { b:'#bfe8f0', l:'#ffffff', d:'#80b8cc', s:'#f0d848', g:'#e8faff', n:'AIRE' }
+};
+function eggPix(type, ex, ey, left, right) {
+  const c = EGG_COL[type];
+  let col = ex <= left + 1 ? c.l : ex >= right - 1 ? c.d : c.b;
+  if (type === 'fuego') {
+    if (ey >= 11 && (((ex + 40) % 4) < 2)) col = ex >= right - 1 ? '#8a2010' : '#c83a1a';
+    if ((ex === -2 && ey === 5) || (ex === 2 && ey === 7) || (ex === 0 && ey === 3) || (ex === -3 && ey === 9)) col = c.s;
+    if (ey === 9 && ex % 2 === 0 && ex > left + 1 && ex < right - 1) col = '#ff7a30';
+  } else if (type === 'agua') {
+    if (ey % 4 === 2 && (((ex + ey + 40) % 4) < 2)) col = c.l;
+    if ((ex === 1 && ey === 4) || (ex === -3 && ey === 9) || (ex === 3 && ey === 12)) col = c.s;
+  } else if (type === 'tierra') {
+    if (hash(ex + 20, ey) % 6 === 0) col = c.d;
+    if ((ex === -3 && ey === 6) || (ex === 2 && ey === 10) || (ex === 0 && ey === 13) || (ex === -1 && ey === 3)) col = c.s;
+  } else {
+    if (((ex * ex + ey * 2 + 40) % 7) === 0) col = '#ffffff';
+    if (ey >= 6 && ey <= 12 && ex === ((ey * 3) % 5) - 2) col = c.s;
+    if (ey >= 14 && ey % 2 === 0) col = '#ffffff';
+  }
+  return col;
+}
+function pixelEllipse(cx, cy, rx, ry, color, alpha) {
+  g.globalAlpha = alpha; g.fillStyle = color;
+  for (let j = -ry; j <= ry; j++) {
+    const hw = Math.round(rx * Math.sqrt(1 - (j / ry) * (j / ry)));
+    g.fillRect(Math.round(cx - hw), Math.round(cy + j), hw * 2, 1);
+  }
+  g.globalAlpha = 1;
+}
+function sparkle(x, y, s, col) {
+  const cx = Math.round(x), cy = Math.round(y);
+  g.fillStyle = col;
+  g.fillRect(cx, cy - s, s, 3 * s); g.fillRect(cx - s, cy, 3 * s, s);
+}
+// cx = centro, baseY = suelo, s = tamaño del píxel, t = tiempo
+function drawEgg(type, cx, baseY, s, t, glow) {
+  const c = EGG_COL[type], NH = EGG_W.length;
+  if (glow) {                                                   // aura que late
+    const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+    [[14,18,0.10],[11,14,0.12],[8,10,0.14]].forEach(([rx, ry, a]) =>
+      pixelEllipse(cx, baseY - 9 * s, rx * s, ry * s, c.g, a * (0.6 + 0.8 * pulse)));
+  }
+  const burst = Math.sin(t * 0.8) > 0.75;                        // de vez en cuando se agita
+  const tilt = Math.sin(t * 3.2) * 1.1 + (burst ? Math.sin(t * 16) * 1.4 : 0);
+  const hop = (burst && Math.sin(t * 16) > 0.5) ? 1 : 0;
+  const by = baseY - hop * s;
+  g.fillStyle = 'rgba(0,0,0,0.28)';
+  g.fillRect(cx - 7 * s, baseY - s, 14 * s, s);                  // sombra en el suelo
+  const shearOf = ey => Math.round(tilt * (NH - 1 - ey) / (NH - 1));
+  for (let ey = 0; ey < NH; ey++) {
+    const w = EGG_W[ey], left = -w / 2, right = w / 2 - 1, sh = shearOf(ey);
+    for (let ex = left; ex <= right; ex++) {
+      const edge = ex === left || ex === right || ey === 0 || ey === NH - 1;
+      g.fillStyle = edge ? '#1a1220' : eggPix(type, ex, ey, left, right);
+      g.fillRect(cx + (ex + sh) * s, by - (NH - ey) * s, s, s);
+    }
+  }
+  g.fillStyle = '#ffffff';                                       // brillo
+  [[-3,4],[-3,5],[-2,3]].forEach(([ex, ey]) => g.fillRect(cx + (ex + shearOf(ey)) * s, by - (NH - ey) * s, s, s));
+  if (Math.sin(t * 2.4) > 0.6) {                                 // grieta luminosa
+    g.fillStyle = c.s;
+    [[-1,4],[0,5],[-1,6],[1,7],[0,8],[1,9]].forEach(([ex, ey]) =>
+      g.fillRect(cx + (ex + shearOf(ey)) * s, by - (NH - ey) * s, s, s));
+  }
+  for (let i = 0; i < 4; i++) {                                  // chispas que giran
+    const ang = t * 1.3 + i * Math.PI / 2, r = 11 + 2 * Math.sin(t * 2 + i);
+    if (Math.sin(t * 5 + i * 2) > -0.2)
+      sparkle(cx + Math.cos(ang) * r * s, by - 9 * s + Math.sin(ang) * r * 0.8 * s, s, i % 2 ? '#ffffff' : c.s);
+  }
 }
 
 // ------------------------------------------------------------
@@ -238,11 +523,6 @@ function mkTile(fn) {
   fn(c.getContext('2d'));
   return c;
 }
-function hash(x, y) {                                  // número "aleatorio" fijo por casilla
-  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return (h ^ (h >>> 16)) >>> 0;
-}
 function grass(x) { rc(x, 0, 0, 16, 16, '#78c850'); }
 function tuft(x, a, b) {
   rc(x, a, b, 1, 2, '#58a838'); rc(x, a + 1, b + 1, 1, 1, '#58a838');
@@ -250,7 +530,6 @@ function tuft(x, a, b) {
 }
 
 const TILES = {};
-// hierba (3 variantes)
 [[[11,3],[4,10],[13,12]], [[3,4],[10,9],[6,13]], [[7,3],[2,12],[12,8]]].forEach((spots, v) => {
   TILES['g' + v] = mkTile(x => {
     grass(x);
@@ -259,7 +538,6 @@ const TILES = {};
     rc(x, (v * 5 + 2) % 14, 1, 1, 1, '#a8e880'); rc(x, (v * 7 + 9) % 14, 14, 1, 1, '#a8e880');
   });
 });
-// flores con pétalos
 function flower(x, a, b, petal, center) {
   rc(x, a + 1, b, 1, 1, petal); rc(x, a, b + 1, 1, 1, petal);
   rc(x, a + 2, b + 1, 1, 1, petal); rc(x, a + 1, b + 2, 1, 1, petal);
@@ -273,8 +551,7 @@ for (let v = 0; v < 3; v++) {
     [[2,3],[9,7],[4,11]].forEach(([a, b]) => flower(x, a, b, FLOW[v][0], FLOW[v][1]));
   });
 }
-// hierba alta
-TILES.G = mkTile(x => {
+TILES.G = mkTile(x => {                               // hierba alta
   rc(x, 0, 0, 16, 16, '#3f9a34');
   for (let r = 0; r < 16; r += 5) {
     for (let a = (r % 10 ? 2 : 0); a < 16; a += 5) {
@@ -283,21 +560,18 @@ TILES.G = mkTile(x => {
     }
   }
 });
-// camino de adoquines
-TILES.S = mkTile(x => {
+TILES.S = mkTile(x => {                               // camino de adoquines
   rc(x, 0, 0, 16, 16, '#cfc7ae');
   [[1,1,6,6],[8,1,7,6],[1,9,4,6],[6,9,6,6],[13,9,2,6]].forEach(([a, b, w, h]) => {
     rc(x, a, b, w, h, '#e9e3d0'); rc(x, a, b, w, 1, '#f7f3e6'); rc(x, a, b + h - 1, w, 1, '#d3ccb3');
   });
 });
-// camino de tierra
-TILES.P = mkTile(x => {
+TILES.P = mkTile(x => {                               // camino de tierra
   rc(x, 0, 0, 16, 16, '#e8d4a0');
   [[2,3],[9,2],[12,8],[5,10],[10,13],[1,14]].forEach(([a, b]) => { rc(x, a, b, 2, 1, '#d0b878'); rc(x, a, b + 1, 1, 1, '#f2e4bc'); });
   rc(x, 7, 6, 1, 1, '#b89c60'); rc(x, 13, 12, 1, 1, '#b89c60');
 });
-// árbol: copa en 4 tonos con trama, contorno oscuro y sombra propia
-TILES.T = mkTile(x => {
+TILES.T = mkTile(x => {                               // árbol
   grass(x);
   x.fillStyle = 'rgba(12,30,56,0.30)';
   x.fillRect(5, 13, 10, 1); x.fillRect(3, 14, 12, 1); x.fillRect(4, 15, 11, 1);
@@ -316,7 +590,6 @@ TILES.T = mkTile(x => {
   }
   [[4,2],[6,1],[3,4],[7,3]].forEach(([a, r]) => rc(x, a, r, 1, 1, '#b4f59a'));
 });
-// roca
 function rock(x) {
   rc(x, 2, 7, 12, 8, '#5c616b'); rc(x, 3, 6, 9, 1, '#5c616b');
   rc(x, 3, 7, 10, 6, '#8e949e'); rc(x, 4, 7, 5, 2, '#c4c9d2');
@@ -324,17 +597,15 @@ function rock(x) {
 }
 TILES.O = mkTile(x => { grass(x); rock(x); });
 TILES.WO = mkTile(x => rock(x));
-// agua (2 fotogramas)
 for (let v = 0; v < 2; v++) {
-  TILES['W' + v] = mkTile(x => {
+  TILES['W' + v] = mkTile(x => {                      // agua (2 fotogramas)
     rc(x, 0, 0, 16, 16, '#3890f0');
     const o = v ? 4 : 0;
     rc(x, 2 + o, 4, 5, 1, '#8ccbff'); rc(x, 9 - o, 10, 5, 1, '#8ccbff'); rc(x, 1 + o, 13, 3, 1, '#60b0ff');
     rc(x, 3 + o, 5, 3, 1, '#2a78d8'); rc(x, 10 - o, 11, 3, 1, '#2a78d8');
   });
 }
-// valla con volumen
-TILES.F = mkTile(x => {
+TILES.F = mkTile(x => {                               // valla
   grass(x);
   rc(x, 0, 7, 16, 2, '#d8d8d8'); rc(x, 0, 11, 16, 2, '#d8d8d8');
   rc(x, 0, 9, 16, 1, '#a8a8a8'); rc(x, 0, 13, 16, 1, '#a8a8a8');
@@ -343,8 +614,7 @@ TILES.F = mkTile(x => {
     rc(x, a + 1, 5, 1, 10, '#c0c0c0'); rc(x, a, 3, 1, 1, '#e8e8e8');
   });
 });
-// cartel
-TILES.N = mkTile(x => {
+TILES.N = mkTile(x => {                               // cartel
   grass(x);
   rc(x, 7, 8, 2, 8, '#6a4524'); rc(x, 8, 8, 1, 8, '#4e301a');
   rc(x, 2, 3, 12, 7, '#4e301a'); rc(x, 2, 3, 12, 1, '#8a5a30');
@@ -352,7 +622,6 @@ TILES.N = mkTile(x => {
   rc(x, 4, 5, 5, 1, '#6a4524'); rc(x, 4, 7, 7, 1, '#6a4524');
 });
 
-// ---- Techos con tejas individuales y sombra de alero ----
 const PAL = {
   u: { b:'#4a7fd8', d:'#2f5aa8', l:'#7aa8f0' },   // azul
   r: { b:'#e8742c', d:'#b4501c', l:'#ffa860' },   // naranja
@@ -362,17 +631,17 @@ const PAL = {
 function shingles(x, p, bottom) {
   rc(x, 0, 0, 16, 16, p.b);
   for (let r = 0; r < 16; r += 4) {
-    rc(x, 0, r + 3, 16, 1, p.d);                              // sombra bajo cada fila
+    rc(x, 0, r + 3, 16, 1, p.d);
     const off = (r / 4) % 2 ? 4 : 0;
     for (let a = off - 8; a < 16; a += 8) {
-      rc(x, Math.max(0, a), r, 1, 3, p.d);                    // junta entre tejas
-      rc(x, Math.max(0, a + 1), r, 6, 1, p.l);                // luz arriba de cada teja
-      rc(x, Math.max(0, a + 2), r + 1, 1, 1, p.l);            // brillo
+      rc(x, Math.max(0, a), r, 1, 3, p.d);
+      rc(x, Math.max(0, a + 1), r, 6, 1, p.l);
+      rc(x, Math.max(0, a + 2), r + 1, 1, 1, p.l);
     }
   }
-  if (!bottom) {                                              // cumbrera
+  if (!bottom) {
     rc(x, 0, 0, 16, 3, p.l); rc(x, 0, 2, 16, 1, p.d); rc(x, 0, 0, 16, 1, '#ffffff55');
-  } else {                                                    // borde del alero
+  } else {
     rc(x, 0, 12, 16, 4, p.d); rc(x, 0, 12, 16, 1, p.l);
     for (let a = 0; a < 16; a += 4) rc(x, a, 12, 1, 3, p.b);
     rc(x, 0, 15, 16, 1, '#1a1220');
@@ -382,8 +651,6 @@ for (const c in PAL) {
   TILES['rt-' + c] = mkTile(x => shingles(x, PAL[c], false));
   TILES['rb-' + c] = mkTile(x => shingles(x, PAL[c], true));
 }
-
-// ---- Paredes de ladrillo con base de piedra y sombra del alero ----
 function wall(x) {
   rc(x, 0, 0, 16, 16, '#f0e4c4');
   for (let r = 0; r < 16; r += 4) {
@@ -391,48 +658,42 @@ function wall(x) {
     const off = (r / 4) % 2 ? 4 : 0;
     for (let a = off; a < 16; a += 8) rc(x, a, r, 1, 3, '#d8c9a0');
   }
-  rc(x, 0, 0, 16, 2, '#b4a47c'); rc(x, 0, 2, 16, 1, '#d2c39a');   // sombra del tejado sobre la pared
-  rc(x, 0, 14, 16, 2, '#a89878'); rc(x, 0, 14, 16, 1, '#c4b48c'); // base de piedra
+  rc(x, 0, 0, 16, 2, '#b4a47c'); rc(x, 0, 2, 16, 1, '#d2c39a');
+  rc(x, 0, 14, 16, 2, '#a89878'); rc(x, 0, 14, 16, 1, '#c4b48c');
 }
 TILES.wl = mkTile(wall);
-
-// ---- Ventana: marco, cristal con reflejos, contraventanas y alféizar ----
 TILES.wn = mkTile(x => {
   wall(x);
-  rc(x, 0, 3, 2, 9, '#4a8a5a'); rc(x, 14, 3, 2, 9, '#4a8a5a');           // contraventanas
+  rc(x, 0, 3, 2, 9, '#4a8a5a'); rc(x, 14, 3, 2, 9, '#4a8a5a');
   [5, 7, 9].forEach(b => { rc(x, 0, b, 2, 1, '#2a5a3a'); rc(x, 14, b, 2, 1, '#2a5a3a'); });
   rc(x, 0, 3, 2, 1, '#6aaa7a'); rc(x, 14, 3, 2, 1, '#6aaa7a');
-  rc(x, 2, 2, 12, 10, '#5a3a20'); rc(x, 2, 2, 12, 1, '#8a5a30');         // marco
-  rc(x, 3, 3, 10, 8, '#7cc4f0');                                          // cristal
-  rc(x, 3, 8, 10, 3, '#5aa0d0');                                          // parte baja más oscura
-  rc(x, 7, 3, 2, 8, '#5a3a20'); rc(x, 3, 6, 10, 1, '#5a3a20');           // cruceta
-  rc(x, 4, 4, 2, 1, '#e8f6ff'); rc(x, 4, 5, 1, 1, '#e8f6ff');            // reflejos
+  rc(x, 2, 2, 12, 10, '#5a3a20'); rc(x, 2, 2, 12, 1, '#8a5a30');
+  rc(x, 3, 3, 10, 8, '#7cc4f0');
+  rc(x, 3, 8, 10, 3, '#5aa0d0');
+  rc(x, 7, 3, 2, 8, '#5a3a20'); rc(x, 3, 6, 10, 1, '#5a3a20');
+  rc(x, 4, 4, 2, 1, '#e8f6ff'); rc(x, 4, 5, 1, 1, '#e8f6ff');
   rc(x, 10, 4, 1, 1, '#e8f6ff'); rc(x, 10, 9, 2, 1, '#b8e4ff');
-  rc(x, 3, 3, 1, 8, '#4a7ab0');                                           // sombra del marco
-  rc(x, 1, 12, 14, 2, '#d8d0b8'); rc(x, 1, 12, 14, 1, '#f0e8d0'); rc(x, 1, 13, 14, 1, '#a89c80'); // alféizar
+  rc(x, 3, 3, 1, 8, '#4a7ab0');
+  rc(x, 1, 12, 14, 2, '#d8d0b8'); rc(x, 1, 12, 14, 1, '#f0e8d0'); rc(x, 1, 13, 14, 1, '#a89c80');
 });
-
-// ---- Puerta: marco de piedra, 4 paneles hundidos, bisagras, pomo y escalón ----
 TILES.dr = mkTile(x => {
   wall(x);
-  rc(x, 1, 0, 14, 16, '#6a5a3c');                       // marco de piedra
-  rc(x, 1, 0, 14, 1, '#9a8a6a'); rc(x, 1, 1, 14, 1, '#8a7a5a');   // dintel
-  rc(x, 2, 2, 12, 14, '#3a2614');                       // hueco oscuro
-  rc(x, 3, 3, 10, 12, '#8a5a30');                       // hoja de la puerta
-  rc(x, 3, 3, 1, 12, '#b0803c'); rc(x, 12, 3, 1, 12, '#6a4220');   // luz izq. / sombra der.
-  rc(x, 7, 3, 2, 12, '#7a4a24');                        // listón central
-  [[4,4],[9,4],[4,9],[9,9]].forEach(([a, b]) => {       // paneles hundidos
+  rc(x, 1, 0, 14, 16, '#6a5a3c');
+  rc(x, 1, 0, 14, 1, '#9a8a6a'); rc(x, 1, 1, 14, 1, '#8a7a5a');
+  rc(x, 2, 2, 12, 14, '#3a2614');
+  rc(x, 3, 3, 10, 12, '#8a5a30');
+  rc(x, 3, 3, 1, 12, '#b0803c'); rc(x, 12, 3, 1, 12, '#6a4220');
+  rc(x, 7, 3, 2, 12, '#7a4a24');
+  [[4,4],[9,4],[4,9],[9,9]].forEach(([a, b]) => {
     rc(x, a, b, 3, 4, '#6e4524');
     rc(x, a, b, 3, 1, '#4e301a'); rc(x, a, b, 1, 4, '#4e301a');
     rc(x, a + 2, b + 1, 1, 3, '#a8743c'); rc(x, a + 1, b + 3, 2, 1, '#a8743c');
   });
-  rc(x, 3, 5, 1, 2, '#2a1c10'); rc(x, 3, 11, 1, 2, '#2a1c10');     // bisagras
-  rc(x, 10, 7, 2, 2, '#ffd84a'); rc(x, 10, 7, 1, 1, '#fff6b0'); rc(x, 11, 8, 1, 1, '#b08a20'); // pomo
-  rc(x, 0, 14, 16, 2, '#b8b0a0'); rc(x, 0, 14, 16, 1, '#dcd4c4'); rc(x, 0, 15, 16, 1, '#8a8272'); // escalón
+  rc(x, 3, 5, 1, 2, '#2a1c10'); rc(x, 3, 11, 1, 2, '#2a1c10');
+  rc(x, 10, 7, 2, 2, '#ffd84a'); rc(x, 10, 7, 1, 1, '#fff6b0'); rc(x, 11, 8, 1, 1, '#b08a20');
+  rc(x, 0, 14, 16, 2, '#b8b0a0'); rc(x, 0, 14, 16, 1, '#dcd4c4'); rc(x, 0, 15, 16, 1, '#8a8272');
 });
-
-// ---- Tablón de misiones ----
-TILES.sg = mkTile(x => {
+TILES.sg = mkTile(x => {                              // tablón de misiones
   wall(x);
   rc(x, 2, 3, 12, 9, '#4e301a'); rc(x, 2, 3, 12, 1, '#8a5a30');
   rc(x, 3, 4, 10, 7, '#a8743c'); rc(x, 3, 10, 10, 1, '#8a5a30');
@@ -458,11 +719,11 @@ function house(x, y, c, rows) {
 let seed = 11;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
-for (let i = 0; i < 120; i++) {                       // flores sueltas
+for (let i = 0; i < 120; i++) {
   const x = 2 + Math.floor(rnd() * (COLS - 4)), y = 2 + Math.floor(rnd() * (ROWS - 4));
   if (map[y][x] === '.') map[y][x] = 'f';
 }
-function treeOK(x, y) {                               // bosque disperso fuera del pueblo
+function treeOK(x, y) {
   if (x >= 13 && x <= 33 && y >= 10 && y <= 27) return false;
   if (y < 10 && x >= 19 && x <= 28) return false;
   return true;
@@ -481,13 +742,13 @@ for (let y = 1; y < ROWS - 1; y++)                    // lago del oeste
 for (let x = 0; x < COLS; x++) for (const y of [0, 1, ROWS - 2, ROWS - 1]) put(x, y, 'T');
 for (let y = 0; y < ROWS; y++) for (const x of [0, 1, COLS - 2, COLS - 1]) put(x, y, 'T');
 
-fill(14, 11, 19, 1, 'S'); fill(14, 20, 19, 1, 'S');   // anillo de piedra
+fill(14, 11, 19, 1, 'S'); fill(14, 20, 19, 1, 'S');
 fill(14, 11, 1, 10, 'S'); fill(32, 11, 1, 10, 'S');
-fill(14, 16, 19, 1, 'S');                             // camino interior
-fill(23, 6, 2, 5, 'S');                               // camino a la mansión
-fill(22, 21, 2, 9, 'P');                              // salida sur
+fill(14, 16, 19, 1, 'S');
+fill(23, 6, 2, 5, 'S');
+fill(22, 21, 2, 9, 'P');
 
-fill(33, 4, 5, 7, 'G'); fill(33, 22, 5, 5, 'G');      // hierba alta
+fill(33, 4, 5, 7, 'G'); fill(33, 22, 5, 5, 'G');
 fill(14, 22, 6, 3, 'G'); fill(26, 22, 5, 3, 'G');
 
 for (let y = 17; y <= 19; y++) for (let x = 22; x <= 25; x++) map[y][x] = 'f';
@@ -503,7 +764,7 @@ house(17, 17, 'u', [['wn','wl','dr','wn']]);
 house(27, 17, 'r', [['wn','wl','dr','wn']]);
 put(18, 15, 'S'); put(30, 15, 'S'); put(24, 15, 'S');
 
-fill(13, 25, 9, 1, 'F'); fill(24, 25, 10, 1, 'F');    // vallas, cartel y rocas
+fill(13, 25, 9, 1, 'F'); fill(24, 25, 10, 1, 'F');
 put(21, 24, 'N');
 put(12, 9, 'O'); put(12, 21, 'O'); put(34, 12, 'O');
 
@@ -535,13 +796,10 @@ function castKind(t) {
   if (t.startsWith('rt-') || t.startsWith('rb-') || t === 'wl' || t === 'wn' || t === 'dr' || t === 'sg') return 'build';
   return null;
 }
-
 function bakeMap() {
-  // 1) todas las casillas
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++) mg.drawImage(tileImg(x, y), x * T, y * T);
 
-  // 2) bordes donde el camino toca la hierba
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       const t = map[y][x];
@@ -559,7 +817,6 @@ function bakeMap() {
     }
   }
 
-  // 3) sombras (luz desde arriba a la izquierda → sombra hacia abajo a la derecha)
   const sl = document.createElement('canvas');
   sl.width = mapCanvas.width; sl.height = mapCanvas.height;
   const sg = sl.getContext('2d');
@@ -573,7 +830,7 @@ function bakeMap() {
         if (!isGround(tx, ty)) return;
         sg.save();
         sg.beginPath(); sg.rect(tx * T, ty * T, T, T); sg.clip();
-        if (kind === 'tree') {                                     // elipse hecha a píxeles
+        if (kind === 'tree') {
           const cx = x * T + 12, cy = y * T + 12;
           for (let j = -7; j <= 7; j++) {
             const hw = Math.round(11 * Math.sqrt(1 - (j / 7) * (j / 7)));
@@ -585,64 +842,124 @@ function bakeMap() {
       });
     }
   }
-  mg.globalAlpha = 0.3;          // se pinta de una vez: las sombras no se oscurecen al solaparse
+  mg.globalAlpha = 0.3;
   mg.drawImage(sl, 0, 0);
   mg.globalAlpha = 1;
 }
 bakeMap();
 
-// ------------------------------------------------------------
-//  DIÁLOGOS Y MISIÓN
-// ------------------------------------------------------------
-const quest = { state: 0 };   // 0 = sin aceptar, 1 = aceptada
-const D = { active: false, text: '', lines: [], total: 0, shown: 0, wrapW: 0, opts: null, sel: 0, then: null };
-
-const dlgW = () => Math.min(W - 12, 260);
-
-function wrapText(text, maxW) {
-  u.font = 'bold 9px "Courier New", monospace';
-  const words = text.split(' '), lines = [];
-  let cur = '';
-  for (const w of words) {
-    const t = cur ? cur + ' ' + w : w;
-    if (u.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+// Minimapa (3 píxeles por casilla) para el menú
+const MINI = { '.':'#78c850','f':'#78c850','G':'#3f9a34','S':'#e9e3d0','P':'#e8d4a0','T':'#2f8a35',
+  'W':'#3890f0','Wo':'#3890f0','O':'#8e949e','F':'#f4f4f4','N':'#c8955a','wl':'#f0e4c4','wn':'#f0e4c4',
+  'dr':'#7a4a2a','sg':'#f0e4c4','rt-u':'#4a7fd8','rb-u':'#2f5aa8','rt-r':'#e8742c','rb-r':'#b4501c',
+  'rt-p':'#7a4cc0','rb-p':'#523090','rt-n':'#8a5a32','rb-n':'#5e3a1e' };
+const miniCanvas = document.createElement('canvas');
+miniCanvas.width = COLS * 3; miniCanvas.height = ROWS * 3;
+(function () {
+  const m = miniCanvas.getContext('2d');
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    m.fillStyle = MINI[map[y][x]] || '#78c850'; m.fillRect(x * 3, y * 3, 3, 3);
   }
-  if (cur) lines.push(cur);
-  return lines;
+})();
+
+// ------------------------------------------------------------
+//  DIÁLOGOS (pergamino con cara), TEST Y MISIÓN
+// ------------------------------------------------------------
+const SPEAK = {
+  mapache: { name: 'Mapache', portrait: 'raccoon' },
+  sabio:   { name: 'Sabio',   portrait: 'sage' },
+  ken:     { name: 'Ken',     portrait: 'ken' },
+  cartel:  { name: 'Cartel',  portrait: null }
+};
+const quest = { state: 0 };   // 0 = sin aceptar, 1 = aceptada
+const D = { active: false, who: null, face: 'normal', text: '', lines: [], total: 0, shown: 0, wrapW: 0, opts: null, sel: 0, then: null };
+const menu = { open: false };
+let reveal = null;            // escena del huevo
+
+function layout() {
+  const w = Math.min(W - 16, 300), bx = Math.floor((W - w) / 2), h = 60, by = H - h - 12;
+  const px = bx + 8, pw = w - 16;
+  const hasP = !!(D.who && SPEAK[D.who] && SPEAK[D.who].portrait);
+  const fx = px + pw - 42;
+  const tx = px + 9, tw = (hasP ? fx - 8 : px + pw - 9) - tx;
+  return { w, bx, by, h, px, pw, hasP, fx, tx, tw };
 }
 function rewrap() {
-  D.wrapW = dlgW() - 28;
+  D.wrapW = layout().tw;
   D.lines = wrapText(D.text, D.wrapW);
   D.total = D.lines.reduce((s, l) => s + l.length, 0);
 }
 function say(text, o) {
   o = o || {};
-  D.active = true; D.text = text; rewrap();
-  D.shown = 0; D.opts = o.opts || null; D.sel = 0; D.then = o.then || null;
+  D.active = true; D.who = o.who || null; D.face = o.face || 'normal';
+  D.text = text; D.shown = 0; D.opts = o.opts || null; D.sel = 0; D.then = o.then || null;
+  rewrap();
 }
 function closeD() { D.active = false; }
 function pressE() {                                   // E o Intro
   if (!D.active) return;
   if (D.shown < D.total) { D.shown = D.total; return; }
-  if (D.opts) D.opts[D.sel].go();
-  else if (D.then) D.then();
-  else closeD();
+  if (D.opts) { D.opts[D.sel].go(); return; }
+  const t = D.then; closeD(); if (t) t();
 }
 
 function talkRaccoon() {
-  if (quest.state === 1) { say(TXT.recordatorio); return; }   // ya aceptada: siempre lo mismo
-  say(TXT.saludo, { opts: [
-    { label: 'Pedir misión', go: () => say(TXT.oferta, { opts: [
-        { label: 'Sí, acepto', go: () => { quest.state = 1; closeD(); } },
-        { label: 'No, gracias', go: () => say(TXT.rechazo) }
-    ] }) },
+  if (quest.state === 1) { say(TXT.recordatorio, { who: 'mapache', face: 'serio' }); return; }
+  say(TXT.saludo, { who: 'mapache', face: 'feliz', opts: [
+    { label: 'Pedir misión', go: () =>
+      say(TXT.oferta1, { who: 'mapache', face: 'sorpresa', then: () =>
+        say(TXT.oferta2, { who: 'mapache', face: 'serio', opts: [
+          { label: 'Sí, acepto', go: () => { quest.state = 1; closeD(); } },
+          { label: 'No, gracias', go: () => say(TXT.rechazo, { who: 'mapache', face: 'normal' }) }
+        ] }) }) },
     { label: 'Cerrar', go: closeD }
   ] });
 }
 
+// ---- El Sabio y el test del dragón ----
+const quiz = { i: 0, picks: [] };
+function talkSage() {
+  if (dragon.type) {
+    say('Cuida bien de tu huevo. Cuando llegue el momento, tu dragón nacerá y luchará a tu lado.', { who: 'sabio', face: 'feliz' });
+    return;
+  }
+  say('¡Vaya, un viajero! Soy el guardián de los dragones de Rowan. Para darte tu huevo debo conocer tu corazón. Son cuatro preguntas. ¿Empezamos?',
+    { who: 'sabio', face: 'normal', opts: [
+      { label: 'Empezar', go: () => { quiz.i = 0; quiz.picks = []; askQuestion(); } },
+      { label: 'Ahora no', go: () => say('Vuelve cuando estés preparado. Los dragones saben esperar.', { who: 'sabio', face: 'serio' }) }
+    ] });
+}
+function askQuestion() {
+  const q = QUIZ[quiz.i];
+  say('(' + (quiz.i + 1) + '/' + QUIZ.length + ') ' + q.q, { who: 'sabio', face: quiz.i % 2 ? 'serio' : 'normal',
+    opts: q.a.map(a => ({ label: a.t, go: () => {
+      quiz.picks.push(a.k); quiz.i++;
+      if (quiz.i < QUIZ.length) askQuestion(); else finishQuiz();
+    } })) });
+}
+function finishQuiz() {
+  const counts = { fuego: 0, agua: 0, tierra: 0, aire: 0 };
+  quiz.picks.forEach(k => counts[k]++);
+  const max = Math.max(...Object.values(counts));
+  let type = null;
+  for (let i = quiz.picks.length - 1; i >= 0; i--) {         // empate: gana tu última respuesta
+    if (counts[quiz.picks[i]] === max) { type = quiz.picks[i]; break; }
+  }
+  say('Mmm... ya veo tu corazón con claridad. ¡Increíble! Algo responde a tu llamada...',
+    { who: 'sabio', face: 'sorpresa', then: () => {
+      dragon.type = type;
+      reveal = { type, t: 0, cb: () => {
+        say(DESC[type], { who: 'sabio', face: 'feliz', then: () =>
+          say('¡Un huevo de dragón! ¡Se mueve! Ya quiero ver cómo nacerá...', { who: 'ken', face: 'sorpresa' }) });
+      } };
+    } });
+}
+function closeReveal() { const cb = reveal.cb; reveal = null; if (cb) cb(); }
+
 const npcs = [
-  { tx: 24, ty: 15, solid: true, sprite: true, talk: talkRaccoon },
-  { tx: 21, ty: 24, solid: true, sprite: false, talk: () => say(TXT.cartel) }
+  { tx: 24, ty: 15, solid: true, sprite: 'raccoon', mk: 15, marker: () => quest.state === 0, talk: talkRaccoon },
+  { tx: 24, ty: 7,  solid: true, sprite: 'sage',    mk: 19, marker: () => !dragon.type,      talk: talkSage },
+  { tx: 21, ty: 24, solid: true, sprite: null, talk: () => say(TXT.cartel, { who: 'cartel' }) }
 ];
 const npcAt = (x, y) => npcs.find(n => n.tx === x && n.ty === y);
 
@@ -658,8 +975,8 @@ function isSolid(x, y) {
 // ------------------------------------------------------------
 const DIRS = { up:[0,-1], down:[0,1], left:[-1,0], right:[1,0] };
 const BASE = { right:0, down:Math.PI/2, left:Math.PI, up:-Math.PI/2 };
-const STEP = 0.2;     // segundos por casilla
-const ATT = 0.4;      // duración del ataque
+const STEP = 0.2;
+const ATT = 0.4;
 
 const P = {
   tx: 22, ty: 20, x: 22 * T, y: 20 * T,
@@ -690,15 +1007,20 @@ addEventListener('keydown', e => {
         if (m === 'up') D.sel = (D.sel + D.opts.length - 1) % D.opts.length;
         if (m === 'down') D.sel = (D.sel + 1) % D.opts.length;
       }
-    } else if (!held.includes(m)) held.push(m);
+    } else if (!menu.open && !reveal && !held.includes(m)) held.push(m);
   }
-  if (k === 'a' && !e.repeat && !D.active) P.qA = 0.25;
-  // E o Intro: hablar, avanzar el texto y aceptar / rechazar
-  if ((k === 'e' || k === 'enter') && !e.repeat) {
+  if (k === 'a' && !e.repeat && !D.active && !menu.open && !reveal) P.qA = 0.25;
+  if ((k === 'e' || k === 'enter') && !e.repeat) {       // E o Intro
     e.preventDefault();
-    if (D.active) pressE(); else P.qE = 0.25;
+    if (reveal) { if (reveal.t > 0.8) closeReveal(); }
+    else if (D.active) pressE();
+    else if (!menu.open) P.qE = 0.25;
   }
-  // zoom manual: + acerca, - aleja
+  if (k === 'm' && !e.repeat && !D.active && !reveal) {  // menú
+    menu.open = !menu.open;
+    if (menu.open) held = [];
+  }
+  if (k === 'escape' && menu.open) menu.open = false;
   if ((k === '+' || k === '=') && !e.repeat) { zoomManual = Math.min(6, K + 1); resize(); }
   if ((k === '-' || k === '_') && !e.repeat) { zoomManual = Math.max(2, K - 1); resize(); }
 });
@@ -730,11 +1052,15 @@ function swordInfo() {
 
 // ------------------------------------------------------------
 //  ACTUALIZAR
+//  Con el menú o la escena del huevo abiertos, el juego se PARA:
+//  solo avanza "time", que mueve las animaciones (agua, pelo, cola, huevo...).
 // ------------------------------------------------------------
 function update(dt) {
   time += dt;
-  P.qA = Math.max(0, P.qA - dt); P.qE = Math.max(0, P.qE - dt);
+  if (reveal) { reveal.t += dt; return; }
+  if (menu.open) return;
 
+  P.qA = Math.max(0, P.qA - dt); P.qE = Math.max(0, P.qE - dt);
   if (D.active && D.shown < D.total) D.shown = Math.min(D.total, D.shown + dt * 45);
 
   if (P.atk >= 0) {
@@ -846,19 +1172,241 @@ function drawPlayer() {
   g.drawImage(getSprite(P.dir, pose, flame), Math.round(P.x) - 1 + lx, Math.round(P.y) - 9 + dy + ly);
   if (attacking && P.dir !== 'up' && s.t < 0.92) { drawTrail(s); drawSword(s.ang); }
 
-  const gx = Math.floor((P.x + 8) / T), gy = Math.floor((P.y + 13) / T);   // la hierba tapa los pies
+  const gx = Math.floor((P.x + 8) / T), gy = Math.floor((P.y + 13) / T);
   if (gx >= 0 && gy >= 0 && gx < COLS && gy < ROWS && map[gy][gx] === 'G')
     g.drawImage(TILES.G, 0, 8, 16, 8, gx * T, gy * T + 8, 16, 8);
 }
 function drawNpc(n) {
   const px = n.tx * T, py = n.ty * T;
   shadow(px, py);
-  g.drawImage(getRaccoon(Math.floor(time * 2) % 2), px - 1, py - 9);
+  g.drawImage(npcSprite(n.sprite, Math.floor(time * 2) % 2), px - 1, py - 9);
 }
 
 function camAxis(p, view, world) {
   if (world <= view) return -Math.floor((view - world) / 2);
   return Math.round(Math.min(Math.max(p - view / 2, 0), world - view));
+}
+
+// ------------------------------------------------------------
+//  INTERFAZ: pergamino, HUD, menú y escena del huevo
+// ------------------------------------------------------------
+function panel(x, y, w, h) {                                  // panel de pergamino viejo
+  g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x + 2, y + h, w, 2);
+  g.fillStyle = '#5a3a18'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#b89458'; g.fillRect(x + 1, y + 1, w - 2, h - 2);
+  g.fillStyle = '#efdcaa'; g.fillRect(x + 2, y + 2, w - 4, h - 4);
+  g.fillStyle = '#f7e9c4'; g.fillRect(x + 3, y + 3, w - 6, 1); g.fillRect(x + 3, y + 3, 1, h - 6);
+  g.fillStyle = '#e4cc90';
+  for (let i = 0; i < 6; i++) g.fillRect(x + 6 + hash(i, w) % Math.max(1, w - 14), y + 6 + hash(i, h) % Math.max(1, h - 14), 3, 2);
+}
+function drawRoll(x, y, h) {                                  // rodillo del pergamino
+  g.fillStyle = '#d9b44a'; g.fillRect(x + 3, y - 3, 4, 3); g.fillRect(x + 3, y + h, 4, 3);
+  g.fillStyle = '#8a6a30'; g.fillRect(x, y, 10, 2);
+  g.fillStyle = '#caa860'; g.fillRect(x, y + 2, 10, h - 4);
+  g.fillStyle = '#a07c3c'; g.fillRect(x, y + 2, 2, h - 4); g.fillRect(x + 8, y + 2, 2, h - 4);
+  g.fillStyle = '#f0dca0'; g.fillRect(x + 3, y + 2, 2, h - 4);
+  g.fillStyle = '#8a6a30'; g.fillRect(x, y + h - 2, 10, 2);
+}
+function drawScroll(bx, by, w, h) {
+  g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(bx + 3, by + h + 2, w - 3, 2);
+  const px = bx + 8, pw = w - 16;
+  for (let i = 0; i < pw; i++) {                              // papel con los bordes rotos
+    const t = by + 3 + hash(i, 1) % 3, b = by + h - 4 - hash(i, 2) % 3;
+    g.fillStyle = '#b89458'; g.fillRect(px + i, t, 1, 1); g.fillRect(px + i, b, 1, 1);
+    g.fillStyle = '#efdcaa'; g.fillRect(px + i, t + 1, 1, b - t - 1);
+    g.fillStyle = '#e6cf98'; g.fillRect(px + i, t + 1, 1, 1); g.fillRect(px + i, b - 1, 1, 1);
+  }
+  g.fillStyle = '#e4cc90';                                     // manchas de edad
+  for (let i = 0; i < 9; i++) g.fillRect(px + 4 + hash(i, 5) % (pw - 10), by + 8 + hash(i, 6) % (h - 18), 3 + i % 2, 2);
+  g.fillStyle = '#d6b878'; g.fillRect(px, by + 4, 2, h - 8); g.fillRect(px + pw - 2, by + 4, 2, h - 8);
+  drawRoll(bx, by, h); drawRoll(bx + w - 10, by, h);
+}
+function arrow(x, y) {
+  g.fillStyle = '#8a2a1a';
+  g.fillRect(x, y, 1, 7); g.fillRect(x + 1, y + 1, 1, 5); g.fillRect(x + 2, y + 2, 1, 3); g.fillRect(x + 3, y + 3, 1, 1);
+}
+
+function drawDialogue() {
+  const L = layout();
+  if (D.wrapW !== L.tw) rewrap();
+  const sp = SPEAK[D.who];
+  drawScroll(L.bx, L.by, L.w, L.h);
+  if (sp) {                                                    // etiqueta con el nombre
+    const nw = Math.ceil(textW(sp.name)) + 10;
+    g.fillStyle = '#5a3a18'; g.fillRect(L.bx + 14, L.by - 11, nw, 13);
+    g.fillStyle = '#caa860'; g.fillRect(L.bx + 15, L.by - 10, nw - 2, 11);
+    ptext(sp.name, L.bx + 19, L.by - 11, '#3a2410');
+  }
+  if (L.hasP) {                                                // cara de quien habla
+    const fy = L.by + 11;
+    g.fillStyle = '#5a3a18'; g.fillRect(L.fx, fy, 38, 38);
+    g.fillStyle = '#d8b878'; g.fillRect(L.fx + 1, fy + 1, 36, 36);
+    g.fillStyle = '#c9a868'; g.fillRect(L.fx + 1, fy + 1, 36, 2); g.fillRect(L.fx + 1, fy + 1, 2, 36);
+    g.drawImage(getPortrait(SPEAK[D.who].portrait, D.face), L.fx + 2, fy + 2);
+  }
+  let rem = Math.floor(D.shown);                               // texto con efecto máquina de escribir
+  D.lines.forEach((l, i) => {
+    const clip = Math.ceil(textW(l.slice(0, Math.max(0, rem)))) + 1;
+    ptext(l, L.tx, L.by + 9 + i * 11, '#3a2410', rem >= l.length ? undefined : clip);
+    rem -= l.length;
+  });
+  if (D.shown >= D.total) {
+    if (D.opts) {                                              // opciones
+      const ow = Math.max(...D.opts.map(o => Math.ceil(textW(o.label)))) + 30, oh = D.opts.length * 13 + 10;
+      const ox = L.bx + L.w - ow - 6, oy = L.by - oh - 14;
+      panel(ox, oy, ow, oh);
+      D.opts.forEach((o, i) => {
+        const yy = oy + 6 + i * 13;
+        ptext(o.label, ox + 18, yy, '#3a2410');
+        if (i === D.sel) arrow(ox + 8, yy + 2);
+      });
+    } else if (Math.floor(time * 3) % 2 === 0) {               // ▼ continuar
+      g.fillStyle = '#8a2a1a';
+      const ax = (L.hasP ? L.fx - 14 : L.px + L.pw - 16), ay = L.by + L.h - 17;
+      g.fillRect(ax, ay, 7, 1); g.fillRect(ax + 1, ay + 1, 5, 1); g.fillRect(ax + 2, ay + 2, 3, 1); g.fillRect(ax + 3, ay + 3, 1, 1);
+    }
+  }
+}
+
+// ---- iconos del menú ----
+const HEART = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+function heartPat(x, y, col) {
+  g.fillStyle = col;
+  HEART.forEach((row, j) => { for (let i = 0; i < 7; i++) if (row[i] === 'X') g.fillRect(x + i, y + j, 1, 1); });
+}
+function heart(x, y, on) {
+  [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dx, dy]) => heartPat(x + dx, y + dy, '#1a1220'));
+  heartPat(x, y, on ? '#e8302a' : '#6a4a4a');
+  if (on) { g.fillStyle = '#ff9a90'; g.fillRect(x + 1, y + 1, 1, 1); }
+}
+function iconSword(x, y) {
+  for (let i = 0; i < 9; i++) { g.fillStyle = '#1a1220'; g.fillRect(x + 3 + i, y + 9 - i, 4, 4); }
+  for (let i = 0; i < 9; i++) { g.fillStyle = i > 6 ? '#f0c8ff' : '#dfe9ff'; g.fillRect(x + 4 + i, y + 10 - i, 2, 2); }
+  g.fillStyle = '#6b4a2f'; g.fillRect(x + 2, y + 12, 2, 2); g.fillRect(x + 1, y + 13, 2, 2);
+  g.fillStyle = '#d9b44a'; for (let k = -2; k <= 2; k++) g.fillRect(x + 5 + k, y + 9 + k, 1, 1);
+}
+function iconCoin(x, y) {
+  for (let j = -5; j <= 5; j++) for (let i = -5; i <= 5; i++) {
+    const d = Math.hypot(i, j);
+    if (d <= 5.2) { g.fillStyle = d > 4.2 ? '#8a6a10' : '#ffd84a'; g.fillRect(x + 8 + i, y + 8 + j, 1, 1); }
+  }
+  g.fillStyle = '#fff6b0'; g.fillRect(x + 5, y + 5, 2, 1); g.fillRect(x + 5, y + 6, 1, 1);
+  g.fillStyle = '#b08a20'; g.fillRect(x + 7, y + 6, 2, 5);
+}
+function iconScroll(x, y) {
+  g.fillStyle = '#efdcaa'; g.fillRect(x + 3, y + 3, 10, 10);
+  g.fillStyle = '#5a3a18'; g.fillRect(x + 3, y + 3, 10, 1); g.fillRect(x + 3, y + 12, 10, 1);
+  g.fillStyle = '#caa860'; g.fillRect(x + 1, y + 2, 3, 12); g.fillRect(x + 12, y + 2, 3, 12);
+  g.fillStyle = '#8a6a30'; g.fillRect(x + 5, y + 6, 6, 1); g.fillRect(x + 5, y + 8, 5, 1); g.fillRect(x + 5, y + 10, 6, 1);
+}
+function bar(x, y, max, val, col) {
+  for (let i = 0; i < max; i++) {
+    g.fillStyle = '#1a1220'; g.fillRect(x + i * 13, y, 12, 8);
+    g.fillStyle = i < val ? col : '#6a5a44'; g.fillRect(x + i * 13 + 1, y + 1, 10, 6);
+    if (i < val) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + i * 13 + 1, y + 1, 10, 2); }
+  }
+}
+function head(label, x, y, w) {
+  ptext(label, x, y, '#8a2a1a');
+  g.fillStyle = '#b89458'; g.fillRect(x, y + 11, w, 1);
+}
+
+function drawMenu() {
+  g.fillStyle = 'rgba(8,10,30,0.5)'; g.fillRect(0, 0, W, H);   // el juego se ve de fondo, parado
+  const S = 124, fw = S + 12, fh = S + 26;
+  const fx = W - fw - 10, fy = 10;
+  const lx = 10, ly = 10, lw = Math.max(150, fx - lx - 10), lh = H - 20;
+
+  // ---- Panel izquierdo: objetos, vida, magia y fuerza (todo a la vista) ----
+  panel(lx, ly, lw, lh);
+  let y = ly + 8;
+  head('OBJETOS', lx + 8, y, lw - 16); y += 15;
+  const rows = [];
+  if (dragon.type) rows.push({ icon: 'egg', text: 'Huevo de dragón · ' + EGG_COL[dragon.type].n });
+  rows.push({ icon: 'sword', text: 'Espada de Ken' });
+  rows.push({ icon: 'coin', text: 'Monedas x' + stats.monedas });
+  rows.push({ icon: 'scroll', text: 'Pergamino mágico x0' });
+  rows.slice(0, 4).forEach(r => {
+    if (r.icon === 'egg') drawEgg(dragon.type, lx + 18, y + 20, 1, time, false);
+    if (r.icon === 'sword') iconSword(lx + 10, y + 3);
+    if (r.icon === 'coin') iconCoin(lx + 10, y + 3);
+    if (r.icon === 'scroll') iconScroll(lx + 10, y + 3);
+    ptext(r.text, lx + 34, y + 7, '#3a2410');
+    g.fillStyle = '#d6b878'; g.fillRect(lx + 8, y + 21, lw - 16, 1);
+    y += 22;
+  });
+  y += 4;
+  head('VIDA', lx + 8, y, lw - 16); y += 15;
+  for (let i = 0; i < stats.vidaMax; i++) heart(lx + 10 + i * 11, y, i < stats.vida);
+  ptext(stats.vida + '/' + stats.vidaMax, lx + 14 + stats.vidaMax * 11, y - 3, '#3a2410');
+  y += 15;
+  head('MAGIA', lx + 8, y, lw - 16); y += 15;
+  bar(lx + 10, y, stats.magiaMax, stats.magia, '#4a8af0'); y += 15;
+  head('FUERZA', lx + 8, y, lw - 16); y += 15;
+  bar(lx + 10, y, stats.fuerzaMax, stats.fuerza, '#e8782a');
+
+  // ---- Mapa en un cuadrado a la derecha ----
+  panel(fx, fy, fw, fh);
+  head('MAPA', fx + 8, fy + 6, fw - 16);
+  const sx = fx + 6, sy = fy + 20;
+  g.fillStyle = '#3a2a14'; g.fillRect(sx - 1, sy - 1, S + 2, S + 2);
+  g.fillStyle = '#1c2a44'; g.fillRect(sx, sy, S, S);
+  const mx = sx + Math.floor((S - COLS * 3) / 2), my = sy + Math.floor((S - ROWS * 3) / 2);
+  g.drawImage(miniCanvas, mx, my);
+  if (Math.floor(time * 3) % 2 === 0) {                        // tú (parpadea)
+    g.fillStyle = '#1a1220'; g.fillRect(mx + P.tx * 3 - 1, my + P.ty * 3 - 1, 5, 5);
+    g.fillStyle = '#ff3030'; g.fillRect(mx + P.tx * 3, my + P.ty * 3, 3, 3);
+  }
+  npcs.filter(n => n.sprite).forEach(n => {
+    g.fillStyle = '#1a1220'; g.fillRect(mx + n.tx * 3 - 1, my + n.ty * 3 - 1, 5, 5);
+    g.fillStyle = n.sprite === 'sage' ? '#c080ff' : '#ffd84a'; g.fillRect(mx + n.tx * 3, my + n.ty * 3, 3, 3);
+  });
+  stext('Aldea de Rowan', fx + 8, fy + fh + 6, '#ffffff');
+  [['#ff3030', 'Tú'], ['#ffd84a', 'Mapache'], ['#c080ff', 'Sabio']].forEach(([c, n], i) => {
+    g.fillStyle = '#1a1220'; g.fillRect(fx + 7, fy + fh + 22 + i * 11, 5, 5);
+    g.fillStyle = c; g.fillRect(fx + 8, fy + fh + 23 + i * 11, 3, 3);
+    stext(n, fx + 16, fy + fh + 19 + i * 11, '#ffffff');
+  });
+}
+
+function drawReveal() {
+  const r = reveal;
+  g.fillStyle = 'rgba(6,6,20,0.75)'; g.fillRect(0, 0, W, H);
+  const s = Math.max(2, Math.min(5, Math.floor(H / 60)));
+  const cx = Math.floor(W / 2), cy = Math.floor(H / 2) + 8 * s;
+  const rise = Math.min(1, r.t / 0.8), ease = 1 - (1 - rise) * (1 - rise);
+  const col = EGG_COL[r.type];
+  g.globalAlpha = 0.10;                                         // rayos de luz que giran
+  g.fillStyle = col.g;
+  for (let i = 0; i < 10; i++) {
+    const a = r.t * 0.4 + i * Math.PI / 5;
+    for (let d = 14 * s; d < H; d += 5) g.fillRect(Math.round(cx + Math.cos(a) * d), Math.round(cy - 9 * s + Math.sin(a) * d), 3, 3);
+  }
+  g.globalAlpha = 1;
+  drawEgg(r.type, cx, Math.round(cy + (1 - ease) * 40), s, r.t, true);
+  g.globalAlpha = ease;
+  const t1 = '¡HUEVO DE DRAGÓN!', t2 = 'Tipo: ' + col.n;
+  stext(t1, Math.round(cx - textW(t1)), 12, '#ffffff', 2);
+  stext(t2, Math.round(cx - textW(t2) / 2), 40, col.l);
+  g.globalAlpha = 1;
+  if (r.t > 0.8 && Math.floor(r.t * 2.5) % 2 === 0) {
+    const t3 = 'Pulsa E / Intro';
+    stext(t3, Math.round(cx - textW(t3) / 2), H - 16, '#ffffff');
+  }
+}
+
+function drawHud() {
+  if (time < 10 && !menu.open) {                                // controles (se desvanecen)
+    g.globalAlpha = time < 8 ? 1 : Math.max(0, 1 - (time - 8) / 2);
+    const hint = 'Flechas · A atacar · E/Intro hablar · M menú · +/- zoom';
+    stext(hint, Math.round(W - textW(hint) - 8), 6, '#ffffff');
+    g.globalAlpha = 1;
+  }
+  if (quest.state === 1 && !menu.open) {
+    const t = 'Misión: hongos brillantes';
+    panel(4, 4, Math.ceil(textW(t)) + 14, 17);
+    ptext(t, 11, 8, '#3a2410');
+  }
 }
 
 function render() {
@@ -868,22 +1416,24 @@ function render() {
   g.save();
   g.translate(-camX, -camY);
 
-  g.drawImage(mapCanvas, 0, 0);                              // suelo, casas y sombras ya dibujados
+  g.drawImage(mapCanvas, 0, 0);
   for (let y = Math.max(0, Math.floor(camY / T)); y <= Math.min(ROWS - 1, Math.ceil((camY + H) / T)); y++)
     for (let x = Math.max(0, Math.floor(camX / T)); x <= Math.min(COLS - 1, Math.ceil((camX + W) / T)); x++) {
       const t = map[y][x];
-      if (t === 'W' || t === 'Wo') drawWater(x, y, t === 'Wo');   // el agua se anima
+      if (t === 'W' || t === 'Wo') drawWater(x, y, t === 'Wo');
     }
 
   const ents = [{ y: P.y, draw: drawPlayer }];
   npcs.filter(n => n.sprite).forEach(n => ents.push({ y: n.ty * T, draw: () => drawNpc(n) }));
   ents.sort((a, b) => a.y - b.y).forEach(e => e.draw());
 
-  if (quest.state === 0 && !D.active) {                  // "!" sobre el mapache
-    const r = npcs[0];
-    const ex = r.tx * T + 6, ey = r.ty * T - 15 + Math.round(Math.sin(time * 5) * 1.5);
-    g.fillStyle = '#1a1220'; g.fillRect(ex - 1, ey - 1, 4, 8); g.fillRect(ex - 1, ey + 7, 4, 4);
-    g.fillStyle = '#ffd84a'; g.fillRect(ex, ey, 2, 6); g.fillRect(ex, ey + 8, 2, 2);
+  if (!D.active) {                                              // "!" sobre quien tiene algo que decirte
+    npcs.forEach(n => {
+      if (!n.marker || !n.marker()) return;
+      const ex = n.tx * T + 6, ey = n.ty * T - n.mk + Math.round(Math.sin(time * 5) * 1.5);
+      g.fillStyle = '#1a1220'; g.fillRect(ex - 1, ey - 1, 4, 8); g.fillRect(ex - 1, ey + 7, 4, 4);
+      g.fillStyle = '#ffd84a'; g.fillRect(ex, ey, 2, 6); g.fillRect(ex, ey + 8, 2, 2);
+    });
   }
 
   parts.forEach(p => {
@@ -893,70 +1443,11 @@ function render() {
   });
   g.globalAlpha = 1;
   g.restore();
-}
 
-// ------------------------------------------------------------
-//  INTERFAZ (texto nítido a resolución real)
-// ------------------------------------------------------------
-function box(x, y, w, h) {
-  u.fillStyle = '#283048'; u.fillRect(x, y, w, h);
-  u.fillStyle = '#8a9ad0'; u.fillRect(x + 1, y + 1, w - 2, h - 2);
-  u.fillStyle = '#f8f8f0'; u.fillRect(x + 2, y + 2, w - 4, h - 4);
-}
-function drawUI() {
-  u.setTransform(1, 0, 0, 1, 0, 0);
-  u.clearRect(0, 0, ui.width, ui.height);
-  u.setTransform(K, 0, 0, K, 0, 0);
-  u.textBaseline = 'top';
-  u.font = 'bold 9px "Courier New", monospace';
-
-  if (time < 10) {                                       // controles (se desvanecen)
-    u.globalAlpha = time < 8 ? 1 : Math.max(0, 1 - (time - 8) / 2);
-    u.textAlign = 'right';
-    const hint = 'Flechas · A atacar · E/Intro hablar · +/- zoom';
-    u.fillStyle = '#000'; u.fillText(hint, W - 7, 7);
-    u.fillStyle = '#fff'; u.fillText(hint, W - 8, 6);
-    u.textAlign = 'left';
-    u.globalAlpha = 1;
-  }
-
-  if (quest.state === 1) {
-    const t = 'Misión: hongos brillantes';
-    box(4, 4, Math.ceil(u.measureText(t).width) + 12, 15);
-    u.fillStyle = '#1c1c28'; u.fillText(t, 10, 8);
-  }
-  if (!D.active) return;
-
-  const DW = dlgW(), bx = Math.floor((W - DW) / 2), by = H - 62;
-  if (D.wrapW !== DW - 28) rewrap();
-  box(bx, by, DW, 56);
-  u.fillStyle = '#1c1c28';
-  let rem = Math.floor(D.shown);
-  D.lines.forEach((l, i) => {
-    u.fillText(l.slice(0, Math.max(0, rem)), bx + 8, by + 7 + i * 12);
-    rem -= l.length;
-  });
-
-  if (D.shown >= D.total) {
-    if (D.opts) {                                        // menú de opciones
-      const h = D.opts.length * 13 + 8, ox = bx + DW - 88;
-      box(ox, by - h - 2, 88, h);
-      D.opts.forEach((o, i) => {
-        const y = by - h + i * 13;
-        u.fillStyle = '#1c1c28';
-        u.fillText(o.label, ox + 18, y + 2);
-        if (i === D.sel) {                               // flechita
-          u.fillRect(ox + 8, y + 3, 1, 7); u.fillRect(ox + 9, y + 4, 1, 5);
-          u.fillRect(ox + 10, y + 5, 1, 3); u.fillRect(ox + 11, y + 6, 1, 1);
-        }
-      });
-    } else if (Math.floor(time * 3) % 2 === 0) {         // ▼ continuar
-      u.fillStyle = '#d83030';
-      const ax = bx + DW - 16, ay = by + 44;
-      u.fillRect(ax, ay, 7, 1); u.fillRect(ax + 1, ay + 1, 5, 1);
-      u.fillRect(ax + 2, ay + 2, 3, 1); u.fillRect(ax + 3, ay + 3, 1, 1);
-    }
-  }
+  drawHud();
+  if (D.active) drawDialogue();
+  if (menu.open) drawMenu();
+  if (reveal) drawReveal();
 }
 
 // ------------------------------------------------------------
@@ -968,7 +1459,6 @@ function loop(ts) {
   last = ts;
   update(dt);
   render();
-  drawUI();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
