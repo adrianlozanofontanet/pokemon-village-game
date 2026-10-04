@@ -1,1146 +1,175 @@
-/* AMPLIACIÓN URBANA — ÍGNEA, PERSONAJES, GUARDIAS Y LOGO */
+/* RESTAURAR LA INTRODUCCIÓN ORIGINAL DESPUÉS DE JOYBIT */
 (() => {
-  const CITY_VERSION = 4;
-
-  const profiles = [
-    {
-      name: 'Lía',
-      job: 'botánica',
-      coat: '#477d68',
-      hair: '#ae784b',
-      skin: '#e9bd91',
-      hat: 'flower',
-      life: [
-        'Crié una planta carnívora. Se comió mis apuntes. Ahora sabe más botánica que yo.',
-        'Mi invernadero es pequeño, pero allí todo el mundo crece a su ritmo. Incluso yo.'
-      ],
-      town: 'Entre tanto ladrillo cuesta encontrar tierra. Por eso planto flores en las azoteas.',
-      secret: 'Bram me guarda semillas en su casco. Dice que es material estratégico.'
-    },
-    {
-      name: 'Bram',
-      job: 'guardia veterano',
-      coat: '#65778d',
-      hair: '#413a35',
-      skin: '#bd8768',
-      hat: 'helmet',
-      life: [
-        'Veintitrés años de guardia. Reconozco un problema por sus pasos. Tú… todavía estás por clasificar.',
-        'Antes vigilaba las murallas con mi hermano. Ahora vigilo por los dos.'
-      ],
-      town: 'Las calles pueden parecer tranquilas. Mi trabajo es que sigan pareciéndolo.',
-      secret: 'Si preguntas por mis poemas, lo negaré. Si encuentras uno, no lo leas en voz alta.'
-    },
-    {
-      name: 'Nora',
-      job: 'mensajera',
-      coat: '#b95151',
-      hair: '#663729',
-      skin: '#edbf96',
-      hat: 'scarf',
-      life: [
-        'Tres paquetes, dos escaleras rotas y un cliente que vive «al lado». Mi mañana normal.',
-        'Quiero cruzar los nueve caminos. Algún día entregaré una carta al otro lado de todos.'
-      ],
-      town: 'Aquí las casas comparten pared. Y secretos. Sobre todo secretos.',
-      secret: 'El cartero anterior dejó una carta sin destinatario. Cada amanecer aparece en un buzón diferente.'
-    },
-    {
-      name: 'Teo',
-      job: 'aprendiz de ilusionista',
-      coat: '#8b61b1',
-      hair: '#302b44',
-      skin: '#d9a378',
-      hat: 'wizard',
-      life: [
-        'Hice desaparecer una moneda. La parte de hacerla volver aún no la domino.',
-        'Mi maestra dice que tengo potencial. Lo dice siempre justo antes de darme una escoba.'
-      ],
-      town: 'La calle de los talleres tiene más humo que magia. Pero el humo queda muy misterioso.',
-      secret: 'La campana sonó ayer trece veces. Yo estaba allí. Y no había nadie tirando de la cuerda.'
-    },
-    {
-      name: 'Yara',
-      job: 'comerciante',
-      coat: '#bf954b',
-      hair: '#3c2527',
-      skin: '#a96f50',
-      hat: 'turban',
-      life: [
-        'Compro barato, vendo con una sonrisa y pago mis deudas. Las tres cosas, siempre.',
-        'Mi primer negocio fue cambiar una piedra bonita por una manzana. Todavía conservo la piedra.'
-      ],
-      town: 'Una tienda pequeña puede esconder un almacén enorme. Pregunta antes de dar algo por agotado.',
-      secret: 'El mejor trato es aquel por el que el cliente vuelve. Lo demás son prisas.'
-    },
-    {
-      name: 'Olmo',
-      job: 'relojero jubilado',
-      coat: '#78728d',
-      hair: '#d4d0c8',
-      skin: '#d9b38f',
-      hat: 'beard',
-      life: [
-        'Arreglé todos los relojes del barrio. El mío sigue atrasando. Me gusta llegar tarde a la vejez.',
-        'Hay personas que cuentan monedas. Yo cuento las tardes que he pasado bien acompañado.'
-      ],
-      town: 'Antes se veía el horizonte desde esta calle. Ahora conozco las cortinas de seis vecinos.',
-      secret: 'El árbol cambió de color la noche en que nací. Mi madre nunca quiso contarme por qué.'
-    },
-    {
-      name: 'Iris',
-      job: 'violinista callejera',
-      coat: '#468a98',
-      hair: '#452547',
-      skin: '#edc5a4',
-      hat: 'beret',
-      life: [
-        'Acepto monedas, aplausos y críticas constructivas. Las críticas van en el sombrero vacío.',
-        'Ensayo cuando todos duermen. Sí, mis vecinos también tienen opiniones sobre eso.'
-      ],
-      town: 'Los pasos, los carros, las ventanas… esta ciudad ya tiene música. Yo solo la acompaño.',
-      secret: 'Compuse una canción para alguien que aún no conozco. Es más fácil así.'
-    },
-    {
-      name: 'Kiro',
-      job: 'explorador',
-      coat: '#687e43',
-      hair: '#534230',
-      skin: '#c6936f',
-      hat: 'ranger',
-      life: [
-        'No me he perdido. El mapa y yo estamos negociando una interpretación.',
-        'Me fui para ver cosas extraordinarias. Ahora vuelvo para contárselas a alguien.'
-      ],
-      town: 'En Rowan, deja siempre una referencia a tu espalda. Los árboles se parecen demasiado.',
-      secret: 'Tengo miedo a las polillas. Si se lo dices a alguien, diré que eran murciélagos enormes.'
-    },
-    {
-      name: 'Sira',
-      job: 'panadera',
-      coat: '#b86d55',
-      hair: '#522c25',
-      skin: '#edba8f',
-      hat: 'chef',
-      life: [
-        '¿Has desayunado? Esa es la primera pregunta importante. Las aventuras vienen después.',
-        'Horneo de madrugada. La ciudad todavía está callada y por un rato parece que me pertenece.'
-      ],
-      town: 'Si alguien pasa hambre, aquí se le guarda un pan. Eso no se discute.',
-      secret: 'El herrero encarga dos bollos y dice que uno es para su perro. No tiene perro.'
-    },
-    {
-      name: 'Daro',
-      job: 'herrero',
-      coat: '#605769',
-      hair: '#945430',
-      skin: '#b47a56',
-      hat: 'apron',
-      life: [
-        'No golpees el metal con rabia. Golpéalo con intención. Vale también para algunas conversaciones.',
-        'Hice mi primera espada a los once. Era horrible. Mi padre la colgó sobre la puerta.'
-      ],
-      town: 'Las fachadas nuevas son bonitas. Las bisagras siguen dando los mismos problemas.',
-      secret: 'Sí, los dos bollos son para mí. ¿Te lo ha contado Sira?'
-    },
-    {
-      name: 'Mina',
-      job: 'inventora',
-      coat: '#c49b3d',
-      hair: '#272836',
-      skin: '#d8a17c',
-      hat: 'goggles',
-      life: [
-        'He inventado una alarma que avisa antes de que pase algo. Lleva sonando desde el martes.',
-        'No ha explotado. Se ha desmontado con entusiasmo. Hay una diferencia.'
-      ],
-      town: 'Me gustan las azoteas. Caben antenas, ideas y cosas que mi casero no debe ver.',
-      secret: 'Estoy construyendo una máquina para recordar sueños. De momento solo recuerda los de mi gato.'
-    },
-    {
-      name: 'Rui',
-      job: 'pescador',
-      coat: '#517c91',
-      hair: '#a3a0a0',
-      skin: '#c29370',
-      hat: 'cap',
-      life: [
-        'El pez más grande siempre es el que no puedes enseñar. El mío ocupa media ciudad.',
-        'Pescar es esperar sin sentir que pierdes el tiempo. Me costó años aprenderlo.'
-      ],
-      town: 'El lago está al final de la avenida. Si ves mi cubo, no te sientes: tiene peces.',
-      secret: 'Le pongo nombre a los peces que devuelvo. Espero que ellos no me pongan nombre a mí.'
-    }
-  ];
-
-  // ----------------------------------------------------------
-  // CONVERSACIONES Y MEMORIA DE LOS PERSONAJES
-  // ----------------------------------------------------------
-
-  function social() {
-    return EXT.social ||= {};
-  }
-
-  function speakPerson(i, text, opts) {
-    const p = profiles[i % profiles.length];
-    const id = 'persona' + i;
-
-    SPEAK[id] = {
-      name: p.name + ' · ' + p.job,
-      portrait: 'urban' + i
-    };
-
-    say(text, { who: id, opts });
-    held = [];
-  }
-
-  function talkPerson(i) {
-    const p = profiles[i % 12];
-    const memory = social()[i] ||= {
-      visits: 0,
-      gift: false
-    };
-
-    const intro = memory.visits++
-      ? 'Ah, eres tú. Tengo un momento. ¿Qué necesitas?'
-      : 'Soy ' + p.name + '. ' + p.life[0];
-
-    markDirty();
-
-    const back = () => talkPersonMenu(i);
-
-    speakPerson(i, intro, [
-      {
-        label: '¿Cómo te va?',
-        go: () => speakPerson(
-          i,
-          p.life[memory.visits % 2],
-          [
-            { label: 'Seguir hablando', go: back },
-            { label: 'Hasta luego', go: closeD }
-          ]
-        )
-      },
-      {
-        label: 'Sobre este lugar',
-        go: () => speakPerson(i, p.town, [
-          { label: 'Otra pregunta', go: back },
-          { label: 'Hasta luego', go: closeD }
-        ])
-      },
-      {
-        label: 'Algo que nadie sepa',
-        go: () => speakPerson(i, p.secret, [
-          { label: 'Otra pregunta', go: back },
-          { label: 'Guardar el secreto', go: closeD }
-        ])
-      },
-      {
-        label: 'Hasta luego',
-        go: closeD
-      }
-    ]);
-  }
-
-  function talkPersonMenu(i) {
-    const p = profiles[i % 12];
-
-    const memory = social()[i] ||= {
-      visits: 0,
-      gift: false
-    };
-
-    speakPerson(i, 'Te escucho.', [
-      {
-        label: 'Cuéntame algo tuyo',
-        go: () => speakPerson(i, p.life[memory.visits % 2])
-      },
-      {
-        label: 'Dar una manzana',
-        go: () => {
-          if (!inv.manzana) {
-            return speakPerson(
-              i,
-              '¿Una manzana imaginaria? Bueno… la intención cuenta.'
-            );
-          }
-
-          if (memory.gift) {
-            return speakPerson(
-              i,
-              'Ya me has invitado. Guarda esa para el camino.'
-            );
-          }
-
-          inv.manzana--;
-          memory.gift = true;
-          markDirty();
-
-          speakPerson(
-            i,
-            i === 1
-              ? 'Gracias. No suelo bajar la guardia, pero aceptaré la manzana.'
-              : 'Gracias. Me acordaré de este detalle.'
-          );
-        }
-      },
-      {
-        label: '¿Algún rumor?',
-        go: () => speakPerson(i, p.secret)
-      },
-      {
-        label: 'Hasta luego',
-        go: closeD
-      }
-    ]);
-  }
-
-  citizenTalk = talkPerson;
-
-  const oldReset = resetSession;
-
-  resetSession = function () {
-    EXT.social = {};
-    EXT.guardVisits = {};
-    oldReset();
-  };
-
-  // ----------------------------------------------------------
-  // NUEVOS SPRITES: ROPA, SOMBREROS, ACCESORIOS Y RETRATOS
-  // ----------------------------------------------------------
-
-  const npcBefore = npcSprite;
-
-  npcSprite = function (kind, f) {
-    if (!kind.startsWith('urban')) {
-      return npcBefore(kind, f);
-    }
-
-    const i = Number(kind.slice(5)) || 0;
-    const p = profiles[i % 12];
-    const key = kind + '_' + f;
-
-    if (spriteCache[key]) return spriteCache[key];
-
-    const c = document.createElement('canvas');
-    c.width = 22;
-    c.height = 30;
-
-    const x = c.getContext('2d');
-
-    const r = (a, b, w, h, col) => {
-      x.fillStyle = col;
-      x.fillRect(a, b, w, h);
-    };
-
-    const wide = i % 12 === 9 ? 2 : 0;
-
-    // Botas y cuerpo.
-    r(6, 25, 4, 3, '#302633');
-    r(12, 25, 4, 3, '#302633');
-
-    r(5 - wide, 14, 12 + wide * 2, 11, p.coat);
-    r(6 - wide, 15, 3, 9, '#ffffff22');
-    r(15 + wide, 15, 2, 10, '#00000033');
-
-    // Brazos con movimiento suave.
-    r(3 - wide, 15 + f, 3, 7, p.coat);
-    r(17 + wide, 15 - f, 2, 7, p.coat);
-    r(3 - wide, 22 + f, 3, 2, p.skin);
-    r(17 + wide, 22 - f, 2, 2, p.skin);
-
-    // Cara y cabello.
-    r(8, 12, 6, 3, p.skin);
-    r(6, 5, 10, 8, p.skin);
-    r(5, 3, 12, 4, p.hair);
-    r(7, 3, 4, 1, '#ffffff30');
-    r(5, 6, 2, 4, p.hair);
-    r(15, 6, 2, 4, p.hair);
-
-    r(8, 9, 1, 1, '#1d2432');
-    r(13, 9, 1, 1, '#1d2432');
-    r(10, 12, 3, 1, '#a16861');
-
-    // Cinturón.
-    r(5, 23, 12, 2, '#4c3935');
-    r(10, 23, 2, 2, '#d2b875');
-
-    if (['flower', 'scarf', 'beret'].includes(p.hat)) {
-      r(4, 7, 2, 12, p.hair);
-      r(16, 7, 2, 11, p.hair);
-    }
-
-    if (p.hat === 'flower') {
-      r(15, 4, 4, 4, '#e8b2cf');
-      r(16, 5, 2, 2, '#ffe6a2');
-    }
-
-    if (p.hat === 'helmet') {
-      r(4, 3, 14, 3, '#8698aa');
-      r(6, 1, 10, 3, '#aab7c1');
-      r(10, 0, 2, 6, '#d8dbe0');
-      r(4, 15, 4, 4, '#bac3ca');
-      r(15, 15, 4, 4, '#bac3ca');
-    }
-
-    if (p.hat === 'scarf') {
-      r(6, 13, 11, 3, '#dfb15a');
-      r(14, 16, 3, 7, '#d6a54b');
-      r(17, 15, 3, 8, '#725238');
-    }
-
-    if (p.hat === 'wizard') {
-      for (let j = 0; j < 7; j++) {
-        r(10 - j, 7 - j, 2 + j, 1, '#654881');
-      }
-      r(3, 6, 16, 2, '#9c77bd');
-      r(11, 3, 2, 2, '#efd485');
-    }
-
-    if (p.hat === 'turban') {
-      r(4, 2, 14, 5, '#dcbb77');
-      r(7, 1, 8, 3, '#efcf8d');
-      r(5, 4, 11, 1, '#9f7441');
-      r(15, 6, 3, 8, '#d3ad66');
-    }
-
-    if (p.hat === 'beard') {
-      r(7, 11, 8, 5, '#dfd9c9');
-      r(9, 16, 4, 2, '#dfd9c9');
-      r(19, 14, 1, 14, '#946a42');
-    }
-
-    if (p.hat === 'beret') {
-      r(3, 2, 13, 3, '#653e68');
-      r(6, 1, 8, 2, '#936394');
-      r(17, 16, 4, 9, '#b18145');
-      r(18, 10, 1, 9, '#d8b46e');
-    }
-
-    if (p.hat === 'ranger') {
-      r(3, 4, 16, 2, '#536a38');
-      r(6, 1, 10, 4, '#75914a');
-      r(16, 0, 1, 5, '#e4c582');
-      r(3, 14, 3, 10, '#71573a');
-    }
-
-    if (p.hat === 'chef') {
-      r(4, 2, 14, 4, '#f2e7d2');
-      r(6, 0, 10, 4, '#fff3dc');
-      r(7, 15, 9, 9, '#eee0bd');
-      r(7, 19, 9, 1, '#c0a98b');
-    }
-
-    if (p.hat === 'apron') {
-      r(6, 15, 11, 10, '#513c33');
-      r(7, 14, 2, 10, '#9d7655');
-      r(16, 18, 5, 3, '#a8abb4');
-    }
-
-    if (p.hat === 'goggles') {
-      r(5, 5, 13, 2, '#765335');
-      r(6, 4, 4, 3, '#dac376');
-      r(12, 4, 4, 3, '#dac376');
-      r(7, 5, 2, 1, '#95d3e4');
-      r(13, 5, 2, 1, '#95d3e4');
-      r(17, 17, 2, 8, '#a9aeb5');
-    }
-
-    if (p.hat === 'cap') {
-      r(5, 2, 12, 4, '#587089');
-      r(3, 5, 15, 2, '#879aab');
-      r(18, 9, 1, 18, '#ad8654');
-    }
-
-    outline(c);
-    return spriteCache[key] = c;
-  };
-
-  const npcDrawBefore = drawNpc;
-
-  drawNpc = function (n) {
-    if (!n.sprite?.startsWith('urban')) {
-      return npcDrawBefore(n);
-    }
-
-    shadow(n.tx * T, n.ty * T);
-
-    g.drawImage(
-      npcSprite(n.sprite, Math.floor(time * 1.8 + n.tx) % 2),
-      n.tx * T - 3,
-      n.ty * T - 13
-    );
-  };
-
-  const portraitBefore = getPortrait;
-
-  getPortrait = function (kind, face) {
-    if (!kind?.startsWith('urban')) {
-      return portraitBefore(kind, face);
-    }
-
-    const c = document.createElement('canvas');
-    c.width = c.height = 32;
-
-    const x = c.getContext('2d');
-    x.imageSmoothingEnabled = false;
-    x.fillStyle = '#2a3345';
-    x.fillRect(0, 0, 32, 32);
-
-    x.drawImage(
-      npcSprite(kind, 0),
-      3, 0, 16, 18,
-      0, 0, 32, 36
-    );
-
-    return c;
-  };
-
-  WORLDS.rotonda.npcs.forEach((n, i) => {
-    n.sprite = 'urban' + i;
-    n.talk = () => talkPerson(i);
-  });
-
-  // ----------------------------------------------------------
-  // GUARDIAS EN LAS SIETE ENTRADAS CERRADAS
-  // ----------------------------------------------------------
-
-  const guardNames = [
-    '', '', 'Vera', 'Hugo', 'Ada', 'León', 'Cora', 'Gael', 'Rosa'
-  ];
-
-  const guardReasons = [
-    '',
-    '',
-    'El puente se ha hundido. No dejaré que otro viajero intente cruzar.',
-    'La niebla no se levanta. Nuestra patrulla aún no ha regresado.',
-    'La puerta solo se abre con permiso del consejo. Yo tampoco tengo uno.',
-    'Están reparando el paso de montaña. Las piedras no distinguen entre valientes y tontos.',
-    'Hay huellas enormes al otro lado. Hasta saber de qué son, nadie pasa.',
-    'El camino termina en un derrumbe. Esperamos a los trabajadores.',
-    'Esta ruta está cerrada por orden de la capitana. No puedo darte paso.'
-  ];
-
-  function guardTalk(i) {
-    EXT.guardVisits ||= {};
-
-    const n = EXT.guardVisits[i] || 0;
-    EXT.guardVisits[i] = n + 1;
-    markDirty();
-
-    const id = 'guardia' + i;
-
-    SPEAK[id] = {
-      name: guardNames[i] + ' · Guardia',
-      portrait: 'urban1'
-    };
-
-    say(
-      (n
-        ? 'Seguimos sin poder abrir el paso. '
-        : 'Alto, viajero. ') + guardReasons[i],
-      {
-        who: id,
-        opts: [
-          {
-            label: '¿Puedo ayudar?',
-            go: () => say(
-              'Agradezco que lo preguntes. Por ahora puedes visitar Ígnea o Rowan. Si cambia la situación, lo sabrás.',
-              { who: id }
-            )
-          },
-          {
-            label: '¿Ni una excepción?',
-            go: () => say(
-              i % 2
-                ? 'Mi trabajo es asegurarme de que vuelvas. Hoy, la respuesta es no.'
-                : 'Si te dejo pasar, tendré que ir a buscarte. Y me toca cenar dentro de una hora.',
-              { who: id }
-            )
-          },
-          {
-            label: 'Volveré más tarde',
-            go: closeD
-          }
-        ]
-      }
-    );
+  if (window.joybitOriginalIntroRestored) return;
+  window.joybitOriginalIntroRestored = true;
+
+  const updateWithAdditions = update;
+  const endOriginalIntroduction = endCine;
+  const saveWithAdditions = saveGame;
+
+  // Recuperar los textos originales de la historia.
+  TUT.irse =
+    '(Rumbo a tierra firme... ¡Y a por la Perla!)';
+
+  TUT.aldea2 =
+    '(Dicen que el sabio de los dragones vive en el edificio morado, y el mapache de las misiones, en la casa del cartel.)';
+
+  // Mantener la corrección que pediste para la hierba.
+  TUT.atacar =
+    '(Con la tecla A golpeo con mi espada. Para cortar la hierba tengo que estar encima de ella.)';
+
+  function beginOriginalIntroduction() {
+    title.on = false;
+    title.confirm = false;
+    menu.open = false;
+
+    reveal = null;
+    EXT.splash = null;
+    EXT.discovery = null;
+    EXT.introFinished = false;
 
     held = [];
+    P.qA = 0;
+    P.qE = 0;
+    P.atk = -1;
+
+    closeD();
+
+    // Reiniciar TU animación original.
+    cine.on = true;
+    cine.stage = 0;
+    cine.t = 0;
+    cine.st0 = 0;
+    cine.flash = 0;
+
+    cineParts.length = 0;
+
+    /*
+      Esta función pertenece a tu código original.
+      Recupera sus diálogos, la Perla, las sombras,
+      el antagonista y todas sus animaciones.
+    */
+    startCine();
+
+    // JoyBit termina en negro.
+    // La introducción original aparece con fundido.
+    startFade(() => {}, 1.2);
+    fade.t = fade.dur / 2;
+    fade.did = true;
   }
 
-  WORLDS.rotonda.gates
-    .filter(e => e.i > 1)
-    .forEach(e => {
-      WORLDS.rotonda.npcs.push({
-        tx: e.x,
-        ty: e.y,
-        solid: true,
-        sprite: 'urban1',
-        guard: e.i,
-        talk: () => guardTalk(e.i)
-      });
-    });
+  startSession = function (fresh) {
+    if (fade || EXT.splash) return;
 
-  const solidBefore = isSolid;
+    closeD();
 
-  isSolid = function (x, y) {
-    if (cw.id === 'rotonda') {
-      const dx = x - 20;
-      const dy = y - 18;
-      const r = Math.hypot(dx, dy);
+    menu.open = false;
+    reveal = null;
+    held = [];
 
-      if (r > 14.65) {
-        const a = Math.atan2(dy, dx);
+    P.qA = 0;
+    P.qE = 0;
 
-        const guarded = cw.gates.some(e => {
-          if (e.i < 2) return false;
+    title.on = false;
+    title.confirm = false;
+    cine.on = false;
 
-          const angle = Math.atan2(e.y - 18, e.x - 20);
-          const difference = Math.atan2(
-            Math.sin(a - angle),
-            Math.cos(a - angle)
-          );
+    EXT.discovery = null;
 
-          return Math.abs(difference) < 0.21;
-        });
-
-        if (guarded) return true;
-      }
-    }
-
-    return solidBefore(x, y);
+    EXT.splash = {
+      t: 0,
+      fresh: !!fresh
+    };
   };
 
-  const updateBefore = update;
-  let guardDelay = 0;
+  newGame = function () {
+    startSession(true);
+  };
+
+  loadGame = function () {
+    if (safeRead(EXT.slot)) {
+      startSession(false);
+    }
+  };
+
+  // Evitar guardar en mitad de la presentación.
+  saveGame = function () {
+    if (cine.on || EXT.splash) return;
+    saveWithAdditions();
+  };
+
+  endCine = function () {
+    if (fade) return;
+
+    EXT.introFinished = true;
+    markDirty();
+
+    /*
+      Ejecutar el final original:
+      fundido, llegada a la isla y tutorial.
+    */
+    endOriginalIntroduction();
+  };
 
   update = function (dt) {
-    updateBefore(dt);
-    guardDelay = Math.max(0, guardDelay - dt);
-
-    if (
-      cw.id !== 'rotonda' ||
-      title.on ||
-      D.active ||
-      fade ||
-      menu.open ||
-      P.moving ||
-      EXT.splash ||
-      guardDelay
-    ) return;
-
-    const d = held[held.length - 1];
-    if (!d) return;
-
-    const [dx, dy] = DIRS[d];
-    const n = npcAt(P.tx + dx, P.ty + dy);
-
-    if (n?.guard) {
-      guardDelay = 2;
-      guardTalk(n.guard);
-    }
-  };
-
-  // ----------------------------------------------------------
-  // CIUDAD COMPACTA: EDIFICIOS ADOSADOS Y AVENIDAS
-  // ----------------------------------------------------------
-
-  TILES.citywall = TILES.S;
-  SOLID.add('citywall');
-
-  const city = newWorld('ignea', 38, 54, 'S');
-  city.name = 'Ciudad Ígnea';
-  city.doors = {};
-  city.buildings = [];
-
-  boundary(city);
-  exits.ignea = [];
-  hidden.ignea = [];
-
-  const palettes = [
-    ['#75504c', '#9d6960', '#dcb6a0'],
-    ['#59647a', '#7d8d9c', '#c5cbd0'],
-    ['#90795b', '#b49b78', '#e4d5b4'],
-    ['#6c5263', '#967488', '#d7b0bc'],
-    ['#647469', '#8a9d85', '#d4d6bb']
-  ];
-
-  for (let i = 0; i < 25; i++) {
-    const col = i % 5;
-    const row = Math.floor(i / 5);
-    const x = [3, 8, 13, 22, 27][col];
-    const y = 3 + row * 9;
-
-    const b = {
-      i,
-      x,
-      y,
-      style: i % 5,
-      floors: 2 + i % 3,
-      pal: palettes[i % 5]
-    };
-
-    city.buildings.push(b);
-
-    for (let yy = y; yy <= y + 6; yy++) {
-      for (let xx = x; xx < x + 5; xx++) {
-        city.grid[yy][xx] = 'citywall';
-      }
-    }
-
-    city.grid[y + 6][x + 2] = 'dr';
-
-    city.doors[(x + 2) + ',' + (y + 6)] = {
-      to: 'igneaCasa' + i,
-      lock: i >= 20 ? 'llave' + (i - 20) : null
-    };
-
-    const room = WORLDS['igneaCasa' + i];
-
-    if (room.npcs[0]) {
-      room.npcs[0].sprite = 'urban' + (i % 12);
-
-      if (![4, 5, 6, 7, 8, 9].includes(i)) {
-        room.npcs[0].talk = () => talkPerson(i % 12);
-      }
-    }
-  }
-
-  // Las llaves siguen ocultas en puntos accesibles.
-  [
-    [2, 11],
-    [17, 20],
-    [21, 29],
-    [32, 38],
-    [17, 47]
-  ].forEach(([x, y], i) => {
-    city.grid[y][x] = 'O';
-
-    hidden.ignea.push({
-      x,
-      y,
-      key: 'llave' + i
-    });
-  });
-
-  // Lago al final de la avenida.
-  for (let y = 48; y < 51; y++) {
-    for (let x = 26; x < 33; x++) {
-      city.grid[y][x] = 'W';
-    }
-  }
-
-  portal(city, 22, 52, 'rotonda', 20, 6);
-
-  [
-    [5, 11], [11, 11], [23, 11], [29, 11],
-    [6, 20], [14, 20], [24, 20], [30, 20],
-    [5, 29], [12, 29], [24, 29], [30, 29],
-    [6, 38], [14, 38], [24, 38], [30, 38],
-    [9, 47], [23, 47]
-  ].forEach(([x, y], i) => {
-    city.npcs.push({
-      tx: x,
-      ty: y,
-      solid: true,
-      sprite: 'urban' + (i % 12),
-      talk: () => talkPerson(i % 12)
-    });
-  });
-
-  enemies.ignea = [
-    { x: 34, y: 48, hp: 4, t: 0 }
-  ];
-
-  originalGrids.ignea = city.grid.map(r => r.slice());
-
-  function rect(x, y, w, h, col) {
-    g.fillStyle = col;
-    g.fillRect(Math.round(x), Math.round(y), w, h);
-  }
-
-  function building(b) {
-    const x = b.x * T;
-    const y = b.y * T;
-    const base = y + 7 * T;
-    const w = 5 * T;
-    const h = 58 + b.floors * 12;
-    const top = base - h;
-
-    // Azotea y volumen.
-    rect(x, y, w, Math.max(0, top - y), '#4c4e57');
-    rect(x, y, w, 2, '#898b91');
-    rect(x + 3, top + 4, w, h, '#00000025');
-    rect(x, top, w, h, b.pal[0]);
-
-    // Ladrillos.
-    for (let j = top + 3; j < base; j += 5) {
-      rect(x, j, w, 1, '#00000017');
-
-      for (
-        let k = x + (Math.floor(j / 5) % 2) * 5;
-        k < x + w;
-        k += 10
-      ) {
-        rect(k, j - 4, 1, 4, '#ffffff15');
-      }
-    }
-
-    // Cornisas y bordes.
-    rect(x, top, 80, 4, b.pal[2]);
-    rect(x, top + 4, 80, 3, '#372f3c');
-    rect(x + 1, top + 7, 3, h - 7, b.pal[1]);
-    rect(x + 77, top + 7, 3, h - 7, '#00000035');
-
-    // Ventanas de los pisos.
-    for (let floor = 0; floor < b.floors; floor++) {
-      const wy = base - 38 - floor * 17;
-      rect(x, wy + 14, 80, 2, b.pal[2]);
-
-      for (let k = 0; k < 4; k++) {
-        const wx = x + 8 + k * 17;
-
-        rect(wx - 2, wy - 2, 13, 15, '#302d3a');
-
-        rect(
-          wx, wy, 9, 11,
-          (b.i + k + floor) % 3 ? '#506779' : '#e6bc71'
-        );
-
-        rect(
-          wx + 1, wy + 1, 3, 8,
-          (b.i + k) % 2 ? '#81a4b5' : '#ffe0a1'
-        );
-
-        rect(wx + 4, wy, 1, 11, b.pal[2]);
-        rect(wx, wy + 5, 9, 1, b.pal[2]);
-        rect(wx - 2, wy + 12, 13, 2, b.pal[2]);
-      }
-    }
-
-    const shopIds = [5, 6, 8];
-    const dojoIds = [7, 9];
-
-    const business =
-      shopIds.includes(b.i) ||
-      dojoIds.includes(b.i);
-
-    // Planta baja.
-    rect(x + 3, base - 23, 74, 23, '#3a3440');
-
-    for (const xx of [x + 6, x + 51]) {
-      rect(xx, base - 20, 22, 16, '#9cabb1');
-      rect(
-        xx + 2, base - 18, 18, 12,
-        business ? '#ddbd80' : '#526b7c'
-      );
-      rect(xx + 3, base - 17, 4, 10, '#ffffff30');
-    }
-
-    // Puerta centrada sobre la casilla de entrada.
-    rect(x + 32, base - 20, 16, 20, '#ad8155');
-    rect(x + 34, base - 18, 12, 17, '#493d37');
-    rect(x + 43, base - 10, 2, 2, '#f3d685');
-    rect(x + 30, base - 1, 20, 2, '#c7c0ad');
-
-    // Toldos y nombres comerciales.
-    if (business) {
-      const color = dojoIds.includes(b.i)
-        ? '#4e607b'
-        : '#a74e47';
-
-      rect(x + 1, base - 29, 78, 7, color);
-
-      for (let k = 0; k < 8; k++) {
-        rect(x + 2 + k * 10, base - 27, 5, 5, '#e7d8b0');
-      }
-
-      const label = {
-        5: 'PROVISIONES',
-        6: 'MADERAS',
-        7: 'DOJO DEL ALBA',
-        8: 'BAZAR',
-        9: 'DOJO NOCTURNO'
-      }[b.i];
-
-      ptext(label, x + 5, base - 39, '#fff0c7', null, 0.7);
-    }
-
-    // Escaleras exteriores.
-    if (b.style === 1) {
-      rect(x + 61, top + 12, 2, h - 40, '#303943');
-      rect(x + 73, top + 12, 2, h - 40, '#303943');
-
-      for (let yy = top + 13; yy < base - 29; yy += 4) {
-        rect(x + 61, yy, 14, 1, '#a0a4a8');
-      }
-    }
-
-    // Chimenea.
-    if (b.style === 2) {
-      rect(x + 54, top - 10, 14, 10, '#59473c');
-      rect(x + 52, top - 12, 18, 3, '#342f36');
-      rect(x + 56, top - 9, 2, 8, '#947557');
-    }
-
-    // Jardineras.
-    if (b.style === 3) {
-      for (let k = 0; k < 3; k++) {
-        rect(x + 7 + k * 24, base - 42, 18, 4, '#684934');
-        rect(x + 8 + k * 24, base - 46, 16, 4, '#4d825c');
-        rect(x + 11 + k * 24, base - 47, 3, 2, '#d896a5');
-      }
-    }
-
-    // Antena de azotea.
-    if (b.style === 4) {
-      rect(x + 8, top - 5, 3, 5, '#37424c');
-      rect(x + 8, top - 7, 20, 2, '#65737c');
-    }
-  }
-
-  decorateCity = function () {
-    // Calles horizontales.
-    for (let row = 0; row < 5; row++) {
-      const y = (10 + row * 9) * T;
-
-      rect(2 * T, y, 32 * T, 3 * T, '#565962');
-      rect(2 * T, y, 32 * T, 4, '#c7c3b5');
-      rect(2 * T, y + 3 * T - 4, 32 * T, 4, '#c7c3b5');
-
-      for (let x = 3 * T; x < 34 * T; x += 12) {
-        rect(x, y + 24, 5, 1, '#88878a');
-      }
-    }
-
-    // Avenida principal.
-    rect(18 * T, 2 * T, 4 * T, 49 * T, '#5d6068');
-    rect(18 * T, 2 * T, 4, 49 * T, '#c7c3b5');
-    rect(22 * T - 4, 2 * T, 4, 49 * T, '#c7c3b5');
-
-    // Pasos de peatones.
-    for (let y = 11 * T; y < 48 * T; y += 9 * T) {
-      for (let x = 18 * T + 7; x < 22 * T - 7; x += 8) {
-        rect(x, y, 4, 14, '#d4cfb7');
-      }
-    }
-
-    city.buildings.forEach(building);
-
-    for (let row = 0; row < 5; row++) {
-      lamp(2 * T, (10 + row * 9) * T);
-      lamp(33 * T, (10 + row * 9) * T);
-    }
-  };
-
-  // ----------------------------------------------------------
-  // ROTONDA SIN CARTELES DE "SELLADO"
-  // ----------------------------------------------------------
-
-  drawPlaceDecor = function () {
-    if (cw.id === 'ignea') {
-      decorateCity();
+    if (!EXT.splash) {
+      // Mantener el juego y todas las ampliaciones.
+      updateWithAdditions(dt);
       return;
     }
 
-    if (cw.id !== 'rotonda') return;
+    /*
+      Procesar JoyBit aquí para impedir que
+      el inicio anterior salte directamente a la isla.
+    */
+    time += dt;
+    EXT.splash.t += dt;
 
-    for (const e of cw.gates) {
-      const x = e.x * T;
-      const y = e.y * T;
+    if (EXT.splash.t < 4.5) return;
 
-      rect(x - 10, y - 25, 5, 26, '#707e85');
-      rect(x + 21, y - 25, 5, 26, '#707e85');
-      rect(x - 10, y - 28, 36, 5, '#a7ada9');
-      rect(x - 8, y - 23, 2, 21, '#c3c5b5');
-      rect(x + 22, y - 23, 2, 21, '#c3c5b5');
+    const fresh = EXT.splash.fresh;
+    EXT.splash = null;
 
-      if (e.i < 2) {
-        stext(
-          e.i === 0 ? 'Ciudad Ígnea' : 'Bosque Rowan',
-          x - 20,
-          y - 42,
-          '#ffe4ac'
-        );
-      }
+    if (fresh) {
+      EXT.introFinished = false;
+
+      resetSession();
+      beginOriginalIntroduction();
+
+      return;
     }
 
-    for (const [x, y] of [
-      [13, 10], [28, 21], [12, 25], [27, 10]
-    ]) {
-      lamp(x * T, y * T);
+    const saved = safeRead(EXT.slot);
+
+    if (!saved) {
+      title.on = true;
+      cine.on = false;
+      EXT.screen = 'slots';
+
+      title.msg =
+        'No se ha podido encontrar esta partida.';
+
+      return;
     }
+
+    applySave(saved);
+
+    /*
+      Si la partida se guardó justo antes de empezar
+      la historia, recuperar la introducción.
+    */
+    if (saved.ext?.introFinished === false) {
+      beginOriginalIntroduction();
+      return;
+    }
+
+    // Una partida avanzada continúa donde se guardó.
+    title.on = false;
+    cine.on = false;
+    closeD();
+
+    startFade(() => {}, 1.2);
+    fade.t = fade.dur / 2;
+    fade.did = true;
   };
-
-  // ----------------------------------------------------------
-  // COMPATIBILIDAD CON PARTIDAS ANTERIORES
-  // ----------------------------------------------------------
-
-  const saveBefore = snapshot;
-  const loadBefore = applySave;
-
-  snapshot = function () {
-    return {
-      ...saveBefore(),
-      cityVersion: CITY_VERSION
-    };
-  };
-
-  applySave = function (s) {
-    s = JSON.parse(JSON.stringify(s));
-
-    if (s.cityVersion !== CITY_VERSION) {
-      if (s.grids) {
-        s.grids.ignea = originalGrids.ignea.map(r => r.slice());
-      }
-
-      (s.enemies ||= {}).ignea = [
-        { x: 34, y: 48, hp: 4, t: 0 }
-      ];
-
-      if (s.world === 'ignea') {
-        s.tx = 20;
-        s.ty = 49;
-      }
-
-      if (s.returnTo?.id === 'ignea') {
-        const i = Number(s.world.replace('igneaCasa', ''));
-        const b = city.buildings[i];
-
-        if (b) {
-          s.returnTo = {
-            id: 'ignea',
-            x: b.x + 2,
-            y: b.y + 7
-          };
-
-          s.doorAt = {
-            x: b.x + 2,
-            y: b.y + 6
-          };
-        }
-      }
-    }
-
-    s.visualVersion = 3;
-    loadBefore(s);
-  };
-
-  // ----------------------------------------------------------
-  // LOGO JOYBIT: LA ESPADA FORMA LA LETRA I
-  // ----------------------------------------------------------
-
-  drawStudio = function () {
-    g.fillStyle = '#000';
-    g.fillRect(0, 0, W, H);
-
-    const t = EXT.splash.t;
-
-    const alpha = Math.max(
-      0,
-      Math.min(1, t / 1.1, (4.5 - t) / 1.1)
-    );
-
-    g.save();
-    g.globalAlpha = alpha;
-
-    const scale = Math.min(W / 370, H / 230, 1.7);
-
-    g.translate(W / 2, H / 2);
-    g.scale(scale, scale);
-
-    g.font = '900 67px Georgia,serif';
-    g.textBaseline = 'alphabetic';
-    g.lineJoin = 'miter';
-
-    const left = 'JOYB';
-    const right = 'T';
-
-    const lw = g.measureText(left).width;
-    const rw = g.measureText(right).width;
-    const total = lw + 19 + rw;
-    const sx = -total / 2;
-
-    g.lineWidth = 2.6;
-    g.strokeStyle = '#eceeef';
-    g.fillStyle = '#040405';
-
-    g.strokeText(left, sx, 23);
-    g.fillText(left, sx, 23);
-
-    g.strokeText(right, sx + lw + 19, 23);
-    g.fillText(right, sx + lw + 19, 23);
-
-    // Desgaste de las letras.
-    for (let i = 0; i < 34; i++) {
-      const x = sx + hash(i, 9) % Math.floor(total);
-      const y = -25 + hash(i, 7) % 5;
-
-      rect(x, y, 1, 2, i % 3 ? '#bfc0c4' : '#000');
-    }
-
-    const x = sx + lw + 9;
-
-    // Empuñadura.
-    rect(x - 2, -74, 4, 25, '#777e87');
-    rect(x - 1, -73, 1, 24, '#d3d7db');
-    rect(x - 4, -78, 8, 5, '#c2c5c9');
-    rect(x - 2, -80, 4, 3, '#e2e5e7');
-
-    for (let j = 0; j < 5; j++) {
-      rect(x - 3, -69 + j * 4, 6, 1, '#323841');
-    }
-
-    // Guarda.
-    segment(x - 3, -47, x - 20, -39, 4, '#777f89');
-    segment(x + 3, -47, x + 20, -39, 4, '#777f89');
-    segment(x - 3, -49, x - 20, -41, 1, '#e2e4e6');
-    segment(x + 3, -49, x + 20, -41, 1, '#e2e4e6');
-
-    // Hoja apuntando hacia abajo.
-    g.fillStyle = '#828993';
-    g.beginPath();
-    g.moveTo(x - 5, -46);
-    g.lineTo(x + 5, -46);
-    g.lineTo(x + 4, 36);
-    g.lineTo(x, 57);
-    g.lineTo(x - 4, 36);
-    g.closePath();
-    g.fill();
-
-    segment(x, -44, x, 46, 2, '#e6e8ec');
-    segment(x + 2, -36, x + 3, 27, 1, '#4c5560');
-
-    // Arañazos sobre el metal.
-    for (let i = 0; i < 8; i++) {
-      segment(
-        x - 4, -25 + i * 8,
-        x - 1, -28 + i * 8,
-        1, '#424a55'
-      );
-    }
-
-    g.font = 'bold 13px Arial,sans-serif';
-    g.fillStyle = '#e9e9e9';
-    g.textAlign = 'center';
-    g.fillText('S  T  U  D  I  O  S', 0, 48);
-
-    g.restore();
-  };
-
-  // Entrada segura al nuevo plano de la ciudad.
-  const travelBefore = travel;
-
-  travel = function (to, x, y, after) {
-    if (to === 'ignea') {
-      x = 20;
-      y = 49;
-    }
-
-    travelBefore(to, x, y, after);
-  };
-
-  // Restablecer el mapa activo tras construir la ciudad.
-  loadWorld(cw.id, P.tx, P.ty, P.dir);
 })();
