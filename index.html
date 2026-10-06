@@ -1,175 +1,299 @@
-/* RESTAURAR LA INTRODUCCIÓN ORIGINAL DESPUÉS DE JOYBIT */
-(() => {
-  if (window.joybitOriginalIntroRestored) return;
-  window.joybitOriginalIntroRestored = true;
+  }
+  let rem = Math.floor(D.shown);
+  D.lines.forEach((l, i) => {
+    const clip = Math.ceil(textW(l.slice(0, Math.max(0, rem)))) + 1;
+    ptext(l, L.tx, L.by + 9 + i * 11, '#3a2410', rem >= l.length ? undefined : clip);
+    rem -= l.length;
+  });
+  if (D.shown >= D.total) {
+    if (D.opts) {
+      const ow = Math.max(...D.opts.map(o => Math.ceil(textW(o.label)))) + 30, oh = D.opts.length * 13 + 10;
+      const ox = L.bx + L.w - ow - 6, oy = L.by - oh - 14;
+      panel(ox, oy, ow, oh);
+      D.opts.forEach((o, i) => {
+        const yy = oy + 6 + i * 13;
+        ptext(o.label, ox + 18, yy, '#3a2410');
+        if (i === D.sel) arrow(ox + 8, yy + 2);
+      });
+    } else if (Math.floor(time * 3) % 2 === 0) {
+      g.fillStyle = '#8a2a1a';
+      const ax = (L.hasP ? L.fx - 14 : L.px + L.pw - 16), ay = L.by + L.h - 17;
+      g.fillRect(ax, ay, 7, 1); g.fillRect(ax + 1, ay + 1, 5, 1); g.fillRect(ax + 2, ay + 2, 3, 1); g.fillRect(ax + 3, ay + 3, 1, 1);
+    }
+  }
+}
 
-  const updateWithAdditions = update;
-  const endOriginalIntroduction = endCine;
-  const saveWithAdditions = saveGame;
+const HEART = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+function heartPat(x, y, col) {
+  g.fillStyle = col;
+  HEART.forEach((row, j) => { for (let i = 0; i < 7; i++) if (row[i] === 'X') g.fillRect(x + i, y + j, 1, 1); });
+}
+function heart(x, y, on) {
+  [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dx, dy]) => heartPat(x + dx, y + dy, '#1a1220'));
+  heartPat(x, y, on ? '#e8302a' : '#6a4a4a');
+  if (on) { g.fillStyle = '#ff9a90'; g.fillRect(x + 1, y + 1, 1, 1); }
+}
+function iconSword(x, y) {
+  for (let i = 0; i < 9; i++) { g.fillStyle = '#1a1220'; g.fillRect(x + 3 + i, y + 9 - i, 4, 4); }
+  for (let i = 0; i < 9; i++) { g.fillStyle = i > 6 ? '#f0c8ff' : '#dfe9ff'; g.fillRect(x + 4 + i, y + 10 - i, 2, 2); }
+  g.fillStyle = '#6b4a2f'; g.fillRect(x + 2, y + 12, 2, 2); g.fillRect(x + 1, y + 13, 2, 2);
+  g.fillStyle = '#d9b44a'; for (let k = -2; k <= 2; k++) g.fillRect(x + 5 + k, y + 9 + k, 1, 1);
+}
+function iconCoin(x, y) {
+  for (let j = -5; j <= 5; j++) for (let i = -5; i <= 5; i++) {
+    const d = Math.hypot(i, j);
+    if (d <= 5.2) { g.fillStyle = d > 4.2 ? '#8a6a10' : '#ffd84a'; g.fillRect(x + 8 + i, y + 8 + j, 1, 1); }
+  }
+  g.fillStyle = '#fff6b0'; g.fillRect(x + 5, y + 5, 2, 1); g.fillRect(x + 5, y + 6, 1, 1);
+  g.fillStyle = '#b08a20'; g.fillRect(x + 7, y + 6, 2, 5);
+}
+function bar(x, y, max, val, col) {
+  for (let i = 0; i < max; i++) {
+    g.fillStyle = '#1a1220'; g.fillRect(x + i * 13, y, 12, 8);
+    g.fillStyle = i < val ? col : '#6a5a44'; g.fillRect(x + i * 13 + 1, y + 1, 10, 6);
+    if (i < val) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + i * 13 + 1, y + 1, 10, 2); }
+  }
+}
 
-  // Recuperar los textos originales de la historia.
-  TUT.irse =
-    '(Rumbo a tierra firme... ¡Y a por la Perla!)';
+function drawMenu() {
+  g.fillStyle = 'rgba(8,10,30,0.5)'; g.fillRect(0, 0, W, H);
+  const S = 124, fw = S + 12, fh = S + 26;
+  const fx = W - fw - 10, fy = 10;
+  const lx = 10, ly = 10, lw = Math.max(170, fx - lx - 10), lh = H - 20;
 
-  TUT.aldea2 =
-    '(Dicen que el sabio de los dragones vive en el edificio morado, y el mapache de las misiones, en la casa del cartel.)';
+  panel(lx, ly, lw, lh);
+  let y = ly + 8;
+  const st = (label, fn) => { ptext(label, lx + 8, y, '#8a2a1a'); fn(lx + 66, y); y += 15; };
+  st('VIDA', (x, yy) => {
+    for (let i = 0; i < stats.vidaMax; i++) heart(x + i * 11, yy + 2, i < stats.vida);
+    ptext(stats.vida + '/' + stats.vidaMax, x + stats.vidaMax * 11 + 4, yy, '#3a2410');
+  });
+  st('HAMBRE', (x, yy) => {
+    bar(x, yy + 2, 5, Math.ceil(stats.hambre / 20), stats.hambre <= 20 ? '#d83030' : '#d8a030');
+    ptext(String(stats.hambre), x + 5 * 13 + 4, yy, stats.hambre <= 20 ? '#a02020' : '#3a2410');
+  });
+  st('MAGIA', (x, yy) => bar(x, yy + 2, stats.magiaMax, stats.magia, '#4a8af0'));
+  st('FUERZA', (x, yy) => bar(x, yy + 2, stats.fuerzaMax, stats.fuerza, '#e8782a'));
+  st('MONEDAS', (x, yy) => {
+    iconCoin(x - 4, yy - 4); ptext(String(stats.monedas), x + 14, yy, '#3a2410');
+    ptext('Mochila ' + carried() + '/' + CAP, x + 44, yy, carried() >= CAP ? '#a02020' : '#3a2410');
+  });
+  g.fillStyle = '#b89458'; g.fillRect(lx + 8, y, lw - 16, 1); y += 6;
 
-  // Mantener la corrección que pediste para la hierba.
-  TUT.atacar =
-    '(Con la tecla A golpeo con mi espada. Para cortar la hierba tengo que estar encima de ella.)';
+  const tabW = 64, listX = lx + 8 + tabW + 8, listW = lw - (listX - lx) - 8;
+  CATS.forEach((c, i) => {
+    const ty = y + i * 20, sel = i === menu.cat;
+    g.fillStyle = '#8a6a30'; g.fillRect(lx + 8, ty, tabW, 18);
+    g.fillStyle = sel ? '#e8c870' : '#d6b878'; g.fillRect(lx + 9, ty + 1, tabW - 2, 16);
+    ptext(c, lx + 20, ty + 3, sel ? '#3a2410' : '#7a5a30');
+    if (sel && menu.focus === 'cat') arrow(lx + 12, ty + 5);
+  });
+  const list = menuItems(menu.cat);
+  g.fillStyle = '#8a6a30'; g.fillRect(listX - 1, y - 1, listW + 2, 5 * 20 + 2);
+  g.fillStyle = '#f2e2b4'; g.fillRect(listX, y, listW, 5 * 20);
+  if (!list.length) ptext('(Vacío)', listX + 10, y + 6, '#8a7a5a');
+  list.slice(0, 5).forEach((it, i) => {
+    const ry = y + i * 20, sel = menu.focus === 'list' && i === menu.idx;
+    if (sel) { g.fillStyle = '#ffe9a8'; g.fillRect(listX, ry, listW, 19); arrow(listX + 3, ry + 6); }
+    if (it.kind === 'weapon') iconSword(listX + 10, ry + 2);
+    else if (it.kind === 'egg') drawEgg(dragon.type, listX + 18, ry + 19, 1, time, false);
+    else drawItemIcon(it.id, listX + 12, ry + 4);
+    ptext(it.name + (it.sub ? ' · ' + it.sub : ''), listX + 30, ry + 5, '#3a2410');
+    if (it.kind === 'weapon' && equipped === it.id) ptext('EQUIPADA', listX + listW - 56, ry + 5, '#2a7a28');
+    if (it.count) ptext('x' + it.count, listX + listW - 24, ry + 5, '#3a2410');
+    g.fillStyle = '#d6b878'; g.fillRect(listX + 4, ry + 19, listW - 8, 1);
+  });
+  const dy = ly + lh - 42;
+  g.fillStyle = '#b89458'; g.fillRect(lx + 8, dy - 4, lw - 16, 1);
+  const sel = list[menu.idx];
+  const txt = menu.msg || (menu.focus === 'list' && sel ? sel.desc : 'Elige con ↑ ↓ y entra con → o E. M para cerrar.');
+  wrapText(txt, lw - 24).slice(0, 3).forEach((l, i) => ptext(l, lx + 12, dy + i * 11, '#3a2410'));
 
-  function beginOriginalIntroduction() {
-    title.on = false;
-    title.confirm = false;
-    menu.open = false;
+  // ---- Mapa en un cuadrado a la derecha ----
+  const vw = cw.outdoor ? cw : WORLDS[(returnTo && returnTo.id) || 'aldea'];
+  panel(fx, fy, fw, fh);
+  ptext('MAPA', fx + 8, fy + 6, '#8a2a1a');
+  g.fillStyle = '#b89458'; g.fillRect(fx + 8, fy + 17, fw - 16, 1);
+  const sx = fx + 6, sy = fy + 20;
+  g.fillStyle = '#3a2a14'; g.fillRect(sx - 1, sy - 1, S + 2, S + 2);
+  g.fillStyle = '#1c2a44'; g.fillRect(sx, sy, S, S);
+  const mini = getMini(vw), ms = mini.ms;
+  const mx = sx + Math.floor((S - vw.cols * ms) / 2), my = sy + Math.floor((S - vw.rows * ms) / 2);
+  g.drawImage(mini, mx, my);
+  const mark = (tx, ty, col) => {
+    const mm = Math.max(3, ms), off = Math.floor((mm - ms) / 2);
+    g.fillStyle = '#1a1220'; g.fillRect(mx + tx * ms - off - 1, my + ty * ms - off - 1, mm + 2, mm + 2);
+    g.fillStyle = col; g.fillRect(mx + tx * ms - off, my + ty * ms - off, mm, mm);
+  };
+  const legend = [['#ff3030', 'Tú']];
+  if (vw.id === 'aldea') {
+    mark(24, 14, '#ffd84a'); mark(24, 5, '#c080ff'); legend.push(['#ffd84a', 'Casa de misiones'], ['#c080ff', 'Casa del mago']);
+    if (tut.step >= 1) { mark(36, 15, '#4adf6a'); legend.push(['#4adf6a', 'Tu casa']); }
+  }
+  const pos = cw.outdoor ? { x: P.tx, y: P.ty } : (cw.doorAt || { x: 24, y: 14 });
+  if (Math.floor(time * 3) % 2 === 0) mark(pos.x, pos.y, '#ff3030');
+  stext(worldName(vw.id), fx + 8, fy + fh + 6, '#ffffff');
+  legend.forEach(([c, n], i) => {
+    g.fillStyle = '#1a1220'; g.fillRect(fx + 7, fy + fh + 22 + i * 11, 5, 5);
+    g.fillStyle = c; g.fillRect(fx + 8, fy + fh + 23 + i * 11, 3, 3);
+    stext(n, fx + 16, fy + fh + 19 + i * 11, '#ffffff');
+  });
+}
 
-    reveal = null;
-    EXT.splash = null;
-    EXT.discovery = null;
-    EXT.introFinished = false;
+function drawReveal() {
+  const r = reveal;
+  g.fillStyle = 'rgba(6,6,20,0.75)'; g.fillRect(0, 0, W, H);
+  const s = Math.max(2, Math.min(5, Math.floor(H / 60)));
+  const cx = Math.floor(W / 2), cy = Math.floor(H / 2) + 8 * s;
+  const rise = Math.min(1, r.t / 0.8), ease = 1 - (1 - rise) * (1 - rise);
+  const col = EGG_COL[r.type];
+  g.globalAlpha = 0.10; g.fillStyle = col.g;
+  for (let i = 0; i < 10; i++) {
+    const a = r.t * 0.4 + i * Math.PI / 5;
+    for (let d = 14 * s; d < H; d += 5) g.fillRect(Math.round(cx + Math.cos(a) * d), Math.round(cy - 9 * s + Math.sin(a) * d), 3, 3);
+  }
+  g.globalAlpha = 1;
+  drawEgg(r.type, cx, Math.round(cy + (1 - ease) * 40), s, r.t, true);
+  g.globalAlpha = ease;
+  const t1 = '¡HUEVO DE DRAGÓN!', t2 = 'Tipo: ' + col.n;
+  stext(t1, Math.round(cx - textW(t1)), 12, '#ffffff', 2);
+  stext(t2, Math.round(cx - textW(t2) / 2), 40, col.l);
+  g.globalAlpha = 1;
+  if (r.t > 0.8 && Math.floor(r.t * 2.5) % 2 === 0) {
+    const t3 = 'Pulsa E / Intro';
+    stext(t3, Math.round(cx - textW(t3) / 2), H - 16, '#ffffff');
+  }
+}
 
-    held = [];
-    P.qA = 0;
-    P.qE = 0;
-    P.atk = -1;
+// ---- Tareas, sellos, misión y hambre en pantalla ----
+function hudLines() {
+  const l = [];
+  if (tut.step === 1) l.push('Tarea 1/3: escribe en el Libro de recuerdos (el atril)');
+  else if (tut.step === 2) {
+    l.push('Tarea 2/3: guarda comida en la despensa' + (tut.stFood ? ' (hecho)' : ''));
+    l.push('y un objeto en el baúl' + (tut.stObj ? ' (hecho)' : ''));
+  } else if (tut.step === 3) l.push('Tarea 3/3: coloca un mueble en un hueco marcado del suelo');
+  else if (tut.homeDone && !tut.gateOpen) l.push('Sellos del portón: ' + sealCount() + '/4  ·  Peaje: ' + TOLL + ' monedas');
+  if ((quest.m || 0) === 1) l.push('Mapache: manzanas ' + Math.min(inv.manzana, 3) + '/3');
+  if (stats.hambre <= 30) l.push('¡Tienes hambre! (' + stats.hambre + ')');
+  return l;
+}
+function drawHud() {
+  if (time < 14 && !menu.open && !D.active) {
+    g.globalAlpha = time < 11 ? 1 : Math.max(0, 1 - (time - 11) / 3);
+    const hint = 'Flechas · A golpear · E/Intro hablar y entrar · M menú · +/- zoom';
+    stext(hint, Math.max(4, Math.round(W - textW(hint) - 8)), 6, '#ffffff');
+    g.globalAlpha = 1;
+  }
+  const lines = hudLines();
+  if (lines.length && !menu.open) {
+    const w = Math.ceil(Math.max(...lines.map(textW))) + 14, h = 8 + lines.length * 11;
+    panel(4, 4, w, h);
+    lines.forEach((t, i) => ptext(t, 11, 8 + i * 11, t.indexOf('hambre') >= 0 ? '#a02020' : '#3a2410'));
+  }
+}
+function homeMarks() {                                // "!" amarillas sobre lo que toca hacer en casa
+  if (cw.id !== 'hogar') return [];
+  if (tut.step === 1) return [[5, 2]];
+  if (tut.step === 2) return [[8, 2], [12, 2]];
+  if (tut.step === 3) return HOG.slots.map(([x, y]) => [x, y]).filter((_, i) => !home.slots[i]).slice(0, 3);
+  return [];
+}
+function drawFade() {
+  let a = 0;
+  if (fade) {
+    a = Math.max(0, Math.min(1, 1 - Math.abs(fade.t / fade.dur * 2 - 1)));
+    g.globalAlpha = a; g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalAlpha = 1;
+  }
+  ui.style.opacity = String(1 - a);
+}
 
-    closeD();
+function scene() {
+  if (splash.on) { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); return; }
+  if (title.on) { drawTitle(); return; }
+  if (cine.on) { drawCine(); if (D.active) drawDialogue(); return; }
+  const camX = camAxis(P.x + 8, W, COLS * T);
+  const camY = camAxis(P.y + 8, H, ROWS * T);
+  g.fillStyle = cw.bg; g.fillRect(0, 0, W, H);
+  g.save();
+  g.translate(-camX, -camY);
 
-    // Reiniciar TU animación original.
-    cine.on = true;
-    cine.stage = 0;
-    cine.t = 0;
-    cine.st0 = 0;
-    cine.flash = 0;
+  g.drawImage(mapCanvas, 0, 0);
+  for (let y = Math.max(0, Math.floor(camY / T)); y <= Math.min(ROWS - 1, Math.ceil((camY + H) / T)); y++)
+    for (let x = Math.max(0, Math.floor(camX / T)); x <= Math.min(COLS - 1, Math.ceil((camX + W) / T)); x++) {
+      const t = map[y][x];
+      if (t === 'W' || t === 'Wo' || t === 'RF') drawWater(x, y, t);
+    }
+  drawItems();
 
-    cineParts.length = 0;
+  const ents = [{ y: P.y, draw: drawPlayer }];
+  npcs.filter(n => n.sprite).forEach(n => ents.push({ y: (n.y !== undefined ? n.y : n.ty * T), draw: () => drawNpc(n) }));
+  if (cw.palm) ents.push({ y: cw.palm.ty * T + 10, draw: drawPalm });
+  if (cw.giant) ents.push({ y: (cw.giant.ty + 1) * T + 4, draw: drawGiant });
+  ents.sort((a, b) => a.y - b.y).forEach(e => e.draw());
 
-    /*
-      Esta función pertenece a tu código original.
-      Recupera sus diálogos, la Perla, las sombras,
-      el antagonista y todas sus animaciones.
-    */
-    startCine();
-
-    // JoyBit termina en negro.
-    // La introducción original aparece con fundido.
-    startFade(() => {}, 1.2);
-    fade.t = fade.dur / 2;
-    fade.did = true;
+  if (cw.well) {
+    const wx = cw.well.tx * T + 8, wy = cw.well.ty * T + 11;
+    if (Math.sin(time * 3) > 0.2) sparkle(wx - 3 + Math.sin(time) * 2, wy, 1, '#ffffff');
+    if (Math.sin(time * 3 + 2) > 0.2) sparkle(wx + 3, wy - 1, 1, '#bfe8ff');
   }
 
-  startSession = function (fresh) {
-    if (fade || EXT.splash) return;
+  if (!D.active) {
+    npcs.forEach(n => {
+      if (!n.marker || !n.marker()) return;
+      const ex = n.tx * T + 6, ey = n.ty * T - n.mk + Math.round(Math.sin(time * 5) * 1.5);
+      g.fillStyle = '#1a1220'; g.fillRect(ex - 1, ey - 1, 4, 8); g.fillRect(ex - 1, ey + 7, 4, 4);
+      g.fillStyle = '#ffd84a'; g.fillRect(ex, ey, 2, 6); g.fillRect(ex, ey + 8, 2, 2);
+    });
+    homeMarks().forEach(([mx, my]) => {
+      const ex = mx * T + 6, ey = my * T - 10 + Math.round(Math.sin(time * 5) * 1.5);
+      g.fillStyle = '#1a1220'; g.fillRect(ex - 1, ey - 1, 4, 8); g.fillRect(ex - 1, ey + 7, 4, 4);
+      g.fillStyle = '#ffd84a'; g.fillRect(ex, ey, 2, 6); g.fillRect(ex, ey + 8, 2, 2);
+    });
+  }
+  floaters.forEach(f => {
+    g.globalAlpha = f.t < 0.8 ? 1 : Math.max(0, 1 - (f.t - 0.8) / 0.4);
+    stext(f.text, Math.round(f.x - textW(f.text) / 2), Math.round(f.y - f.t * 14), f.color);
+  });
+  g.globalAlpha = 1;
+  parts.forEach(p => {
+    g.globalAlpha = 1 - p.life / p.max;
+    g.fillStyle = p.c;
+    g.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
+  });
+  g.globalAlpha = 1;
+  g.restore();
 
-    closeD();
+  drawHud();
+  if (D.active) drawDialogue();
+  if (menu.open) drawMenu();
+  if (reveal) drawReveal();
+}
+function render() {
+  scene(); drawFade(); flushText();
+  if (splash.on) drawSplashHi();
+}
 
-    menu.open = false;
-    reveal = null;
-    held = [];
-
-    P.qA = 0;
-    P.qE = 0;
-
-    title.on = false;
-    title.confirm = false;
-    cine.on = false;
-
-    EXT.discovery = null;
-
-    EXT.splash = {
-      t: 0,
-      fresh: !!fresh
-    };
-  };
-
-  newGame = function () {
-    startSession(true);
-  };
-
-  loadGame = function () {
-    if (safeRead(EXT.slot)) {
-      startSession(false);
-    }
-  };
-
-  // Evitar guardar en mitad de la presentación.
-  saveGame = function () {
-    if (cine.on || EXT.splash) return;
-    saveWithAdditions();
-  };
-
-  endCine = function () {
-    if (fade) return;
-
-    EXT.introFinished = true;
-    markDirty();
-
-    /*
-      Ejecutar el final original:
-      fundido, llegada a la isla y tutorial.
-    */
-    endOriginalIntroduction();
-  };
-
-  update = function (dt) {
-    if (!EXT.splash) {
-      // Mantener el juego y todas las ampliaciones.
-      updateWithAdditions(dt);
-      return;
-    }
-
-    /*
-      Procesar JoyBit aquí para impedir que
-      el inicio anterior salte directamente a la isla.
-    */
-    time += dt;
-    EXT.splash.t += dt;
-
-    if (EXT.splash.t < 4.5) return;
-
-    const fresh = EXT.splash.fresh;
-    EXT.splash = null;
-
-    if (fresh) {
-      EXT.introFinished = false;
-
-      resetSession();
-      beginOriginalIntroduction();
-
-      return;
-    }
-
-    const saved = safeRead(EXT.slot);
-
-    if (!saved) {
-      title.on = true;
-      cine.on = false;
-      EXT.screen = 'slots';
-
-      title.msg =
-        'No se ha podido encontrar esta partida.';
-
-      return;
-    }
-
-    applySave(saved);
-
-    /*
-      Si la partida se guardó justo antes de empezar
-      la historia, recuperar la introducción.
-    */
-    if (saved.ext?.introFinished === false) {
-      beginOriginalIntroduction();
-      return;
-    }
-
-    // Una partida avanzada continúa donde se guardó.
-    title.on = false;
-    cine.on = false;
-    closeD();
-
-    startFade(() => {}, 1.2);
-    fade.t = fade.dur / 2;
-    fade.did = true;
-  };
+// ------------------------------------------------------------
+//  BUCLE DEL JUEGO
+// ------------------------------------------------------------
+let last = 0;
+function loop(ts) {
+  const dt = Math.min((ts - last) / 1000 || 0, 0.05);
+  last = ts;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+(function () {                                    // si tenías una partida muy antigua, pasa a la ranura 1
+  try {
+    const old = localStorage.getItem('magikkingdom_save_v1');
+    if (old && !localStorage.getItem(SLOT_KEY(1))) localStorage.setItem(SLOT_KEY(1), old);
+  } catch (e) {}
 })();
+refreshSlots();
+loadWorld('isla', 18, 15, 'up');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
